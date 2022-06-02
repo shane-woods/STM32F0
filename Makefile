@@ -17,7 +17,7 @@
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-BINARY = usart_iadc
+BINARY = spi_eadc
 
 LDSCRIPT = libopencm3-examples/examples/stm32/f0/stm32f0-discovery/stm32f0-discovery.ld
 
