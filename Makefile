@@ -22,3 +22,4 @@ BINARY = usart_iadc
 LDSCRIPT = libopencm3-examples/examples/stm32/f0/stm32f0-discovery/stm32f0-discovery.ld
 
 include libopencm3-examples/examples/stm32/f0/Makefile.include
+
