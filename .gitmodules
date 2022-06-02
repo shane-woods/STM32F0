@@ -3,4 +3,4 @@
 	url = https://github.com/libopencm3/libopencm3-examples.git
 [submodule "libopencm3"]
 	path = libopencm3
-	url = https://github.com/libopencm3/libopencm3.git
+	url = https://github.com/shane-woods/libopencm3
