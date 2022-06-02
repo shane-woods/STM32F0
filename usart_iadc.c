@@ -71,17 +71,18 @@ int main(void) {
         while (!(adc_eoc(ADC1)));
 
         raw = adc_read_regular(ADC1);
+        float voltage = raw * (3.3/4095); 
 
-        float voltage = raw * (3/4095); 
-
-        usart_send_blocking(USART1, raw);
-
-        snprintf(buffer, sizeof(buffer), "%f", voltage);
+        snprintf(buffer, sizeof(buffer), "%.04f", voltage);
         
         char msg[] = "Reading voltage from 3.3v pin: ";
 
-        usart_send_blocking(USART1, (uint16_t)msg);
-        usart_send_blocking(USART1, (uint16_t)buffer);
+		int sizeMSG = strlen(msg);
+		for (int i = 0; i < sizeMSG; i++)
+        	usart_send_blocking(USART1, msg[i]);
+		int sizeBUF = strlen(buffer);
+		for (int i = 0; i < sizeBUF; i++)
+	        usart_send_blocking(USART1, buffer[i]);
 
         usart_send_blocking(USART1, '\r');
 	    usart_send_blocking(USART1, '\n');
