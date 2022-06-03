@@ -1,13 +1,13 @@
 spi_eadc.o: spi_eadc.c libopencm3/include/libopencm3/stm32/rcc.h \
  libopencm3//include/libopencm3/cm3/common.h \
- /Applications/ARM/lib/gcc/arm-none-eabi/11.2.1/include/stdint.h \
- /Applications/ARM/arm-none-eabi/include/stdint.h \
- /Applications/ARM/arm-none-eabi/include/machine/_default_types.h \
- /Applications/ARM/arm-none-eabi/include/sys/features.h \
- /Applications/ARM/arm-none-eabi/include/_newlib_version.h \
- /Applications/ARM/arm-none-eabi/include/sys/_intsup.h \
- /Applications/ARM/arm-none-eabi/include/sys/_stdint.h \
- /Applications/ARM/lib/gcc/arm-none-eabi/11.2.1/include/stdbool.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/lib/gcc/arm-none-eabi/10.3.1/include/stdint.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/stdint.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/machine/_default_types.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/sys/features.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/_newlib_version.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/sys/_intsup.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/sys/_stdint.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/lib/gcc/arm-none-eabi/10.3.1/include/stdbool.h \
  libopencm3//include/libopencm3/stm32/memorymap.h \
  libopencm3//include/libopencm3/stm32/f0/memorymap.h \
  libopencm3//include/libopencm3/cm3/memorymap.h \
@@ -26,24 +26,28 @@ spi_eadc.o: spi_eadc.c libopencm3/include/libopencm3/stm32/rcc.h \
  libopencm3//include/libopencm3/stm32/common/gpio_common_f24.h \
  libopencm3//include/libopencm3/stm32/common/gpio_common_f234.h \
  libopencm3//include/libopencm3/stm32/common/gpio_common_all.h \
- /Applications/ARM/arm-none-eabi/include/stdio.h \
- /Applications/ARM/arm-none-eabi/include/_ansi.h \
- /Applications/ARM/arm-none-eabi/include/newlib.h \
- /Applications/ARM/arm-none-eabi/include/sys/config.h \
- /Applications/ARM/arm-none-eabi/include/machine/ieeefp.h \
- /Applications/ARM/arm-none-eabi/include/sys/cdefs.h \
- /Applications/ARM/lib/gcc/arm-none-eabi/11.2.1/include/stddef.h \
- /Applications/ARM/lib/gcc/arm-none-eabi/11.2.1/include/stdarg.h \
- /Applications/ARM/arm-none-eabi/include/sys/reent.h \
- /Applications/ARM/arm-none-eabi/include/_ansi.h \
- /Applications/ARM/arm-none-eabi/include/sys/_types.h \
- /Applications/ARM/arm-none-eabi/include/machine/_types.h \
- /Applications/ARM/arm-none-eabi/include/sys/lock.h \
- /Applications/ARM/arm-none-eabi/include/sys/types.h \
- /Applications/ARM/arm-none-eabi/include/sys/_pthreadtypes.h \
- /Applications/ARM/arm-none-eabi/include/machine/types.h \
- /Applications/ARM/arm-none-eabi/include/sys/stdio.h \
- /Applications/ARM/arm-none-eabi/include/string.h \
- /Applications/ARM/arm-none-eabi/include/sys/string.h \
- /Applications/ARM/arm-none-eabi/include/stdlib.h \
- /Applications/ARM/arm-none-eabi/include/machine/stdlib.h
+ libopencm3/include/libopencm3/stm32/spi.h \
+ libopencm3//include/libopencm3/stm32/f0/spi.h \
+ libopencm3//include/libopencm3/stm32/common/spi_common_v2.h \
+ libopencm3//include/libopencm3/stm32/common/spi_common_all.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/stdio.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/_ansi.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/newlib.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/sys/config.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/machine/ieeefp.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/sys/cdefs.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/lib/gcc/arm-none-eabi/10.3.1/include/stddef.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/lib/gcc/arm-none-eabi/10.3.1/include/stdarg.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/sys/reent.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/_ansi.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/sys/_types.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/machine/_types.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/sys/lock.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/sys/types.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/sys/_pthreadtypes.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/machine/types.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/sys/stdio.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/string.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/sys/string.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/stdlib.h \
+ /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/machine/stdlib.h

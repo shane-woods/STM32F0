@@ -2,6 +2,7 @@
 #include "libopencm3/include/libopencm3/stm32/adc.h"
 #include "libopencm3/include/libopencm3/stm32/usart.h"
 #include "libopencm3/include/libopencm3/stm32/gpio.h"
+#include "libopencm3/include/libopencm3/stm32/spi.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -20,17 +21,13 @@ static void clock_setup(void)
 }
 
 static void spi_setup(void) {
-	gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ,
-            GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO5 |
-                                            GPIO7 );
-	gpio_set_mode(GPIOA, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT,
-          GPIO6);
-
-	spi_reset(SPI1);
+	gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO5 | GPIO7);
+	gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO6);
 
 	spi_init_master(SPI1, SPI_CR1_BAUDRATE_FPCLK_DIV_64, SPI_CR1_CPOL_CLK_TO_1_WHEN_IDLE,
-                  SPI_CR1_CPHA_CLK_TRANSITION_1, SPI_CR1_DFF_16BIT, SPI_CR1_MSBFIRST);
+                  SPI_CR1_CPHA_CLK_TRANSITION_1, SPI_CR1_MSBFIRST);
 
+	spi_reset(SPI1);
 	/*
    	* Set NSS management to software.
    	*
@@ -87,9 +84,8 @@ int main(void) {
 
 	int i = 0;
     while (1) {
-
         // Transmit UART to verify everything is okay
-        snprintf(uart_buf, sizeof(uart_buf), "\nSPI Test %d\r\n", i);
+        snprintf(uart_buf, sizeof(uart_buf), "SPI Test %d\r\n", i);
 		uart_buf_len = strlen(uart_buf);
 		for (int j = 0; j < uart_buf_len; j++) 
 			usart_send_blocking(USART1, uart_buf[j]);
@@ -97,7 +93,7 @@ int main(void) {
         i++;
 
         // Read status register
-        raw = spi_read(SPI1);
+        raw = spi_read8(SPI1);
       
         //Calculate voltage
         voltage = 65536 / (raw * 5);
@@ -106,9 +102,12 @@ int main(void) {
        	snprintf(voltage_buf, sizeof(voltage_buf), "Voltage from ADC: %f\r\n", voltage);
 		voltage_buf_len = strlen(voltage_buf); 
 		for (int j = 0; j < voltage_buf_len; j++)
-			usart_send_blocking(USART1, voltage_buf[j]);\
+			usart_send_blocking(USART1, voltage_buf[j]);
 
-        for (j = 0; j < 800000; j++) {   /* Wait a bit. */
+		usart_send_blocking(USART1, '\r');
+		usart_send_blocking(USART1,'\n');
+
+        for (int j = 0; j < 800000; j++) {   /* Wait a bit. */
 			__asm__("nop");
 		}
     }
