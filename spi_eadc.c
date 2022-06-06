@@ -95,10 +95,12 @@ int main(void)
     Global variables
     */
     uint16_t raw;
-    float voltage;
+    double voltage;
     char uart_buf[20];
     int uart_buf_len;
-    char voltage_buf[20];
+    char raw_buf[50];
+    int raw_buf_len;
+    char voltage_buf[50];
     int voltage_buf_len;
     int i = 0;
     while (1)
@@ -127,13 +129,25 @@ int main(void)
         spi_send(SPI1, 0x00);
 
         /* Read a byte from ADC */
-        raw += spi_read(SPI1); // dies here
+
+        raw = gpio_get(GPIOA, GPIO6);
+
+        spi_send(SPI1, 0x00);
 
         i++;
 
-        voltage = 65536 / (raw * 5);
+        voltage = 65535.0 / (raw * 2.5);
+
+        snprintf(raw_buf, sizeof(raw_buf), "Raw digital value from ADC: %d", raw);
+        raw_buf_len = strlen(raw_buf);
+
+        for (int j = 0; j < raw_buf_len; j++) 
+            usart_send_blocking(USART1, raw_buf[j]);
+
+        usart_send_blocking(USART1, '\r');
+        usart_send_blocking(USART1, '\n');
      
-        snprintf(voltage_buf, sizeof(voltage_buf), "Voltage from ADC: %f", voltage);
+        snprintf(voltage_buf, sizeof(voltage_buf), "Voltage from ADC: %.02f", voltage);
         voltage_buf_len = strlen(voltage_buf);
 
         for (int j = 0; j < voltage_buf_len; j++)
@@ -141,6 +155,8 @@ int main(void)
         usart_send_blocking(USART1, '\r');
         usart_send_blocking(USART1, '\n');
 		usart_send_blocking(USART1, '\n');
+
+        gpio_toggle(PORT_LED, PIN_LED);
 
         for (int j = 0; j < 800000; j++)
         { /* Wait a bit. */
