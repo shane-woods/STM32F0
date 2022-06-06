@@ -2781,7 +2781,7 @@ END GROUP
                 0x00000000200009f4                . = ALIGN (0x4)
                 0x00000000200009f4                end = .
                 0x0000000020002000                PROVIDE (_stack = (ORIGIN (ram) + LENGTH (ram)))
-OUTPUT(spi.elf elf32-littlearm)
+OUTPUT(spi_eadc.elf elf32-littlearm)
 LOAD linker stubs
 
 .debug_info     0x0000000000000000     0x356b
