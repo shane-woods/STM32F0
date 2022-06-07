@@ -2,7 +2,6 @@
 ## This file is part of the libopencm3 project.
 ##
 ## Copyright (C) 2009 Uwe Hermann <uwe@hermann-uwe.de>
-## Copyright (C) 2010 Piotr Esden-Tempski <piotr@esden.net>
 ##
 ## This library is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU Lesser General Public License as published by
@@ -18,27 +17,9 @@
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-LIBNAME		= opencm3_stm32f0
-DEFS		+= -DSTM32F0
+BINARY = spi_eadc
 
-FP_FLAGS	?= -msoft-float
-ARCH_FLAGS	= -mthumb -mcpu=cortex-m0 $(FP_FLAGS)
+LDSCRIPT = ../libopencm3-examples/examples/stm32/f0/stm32f0-discovery/stm32f0-discovery.ld
 
-################################################################################
-# OpenOCD specific variables
+include ../libopencm3-examples/examples/stm32/f0/Makefile.include
 
-OOCD		?= openocd
-OOCD_INTERFACE	?= stlink-v2-1
-OOCD_TARGET	?= stm32f0x
-
-################################################################################
-# Black Magic Probe specific variables
-# Set the BMP_PORT to a serial port and then BMP is used for flashing
-BMP_PORT	?=
-
-################################################################################
-# texane/stlink specific variables
-#STLINK_PORT	?= :4242
-
-
-include ../libopencm3-examples/examples/rules.mk

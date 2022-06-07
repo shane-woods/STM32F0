@@ -1,8 +1,8 @@
-#include "libopencm3/include/libopencm3/stm32/rcc.h"
-#include "libopencm3/include/libopencm3/stm32/adc.h"
-#include "libopencm3/include/libopencm3/stm32/usart.h"
-#include "libopencm3/include/libopencm3/stm32/gpio.h"
-#include "libopencm3/include/libopencm3/stm32/spi.h"
+#include "../libopencm3/include/libopencm3/stm32/rcc.h"
+#include "../libopencm3/include/libopencm3/stm32/adc.h"
+#include "../libopencm3/include/libopencm3/stm32/usart.h"
+#include "../libopencm3/include/libopencm3/stm32/gpio.h"
+#include "../libopencm3/include/libopencm3/stm32/spi.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -23,9 +23,11 @@ static void clock_setup(void)
 static void spi_setup(void)
 {
     /* Configure GPIOs: SS=PA4, SCK=PA5, MISO=PA6 and MOSI=PA7 */
-    gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO5 | GPIO7);
-    gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO6);
     gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO6);
+
+    gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO5 | GPIO6);
+	gpio_set_af(GPIOA, GPIO_AF0, GPIO5 | GPIO6);
+	gpio_set_output_options(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, GPIO5 | GPIO6);
 
     /* Reset SPI, SPI_CR1 register cleared, SPI is disabled */
     spi_reset(SPI1);
@@ -103,25 +105,21 @@ int main(void)
     char voltage_buf[50];
     int voltage_buf_len;
     int i = 0;
-    while (1)
-    {
+
+    while (1) {
+
         // Transmit UART to verify everything is okay
         snprintf(uart_buf, sizeof(uart_buf), "SPI Test %d", i);
         uart_buf_len = strlen(uart_buf);
         for (int j = 0; j < uart_buf_len; j++)
-			usart_send_blocking(USART1, uart_buf[j]);
-		usart_send_blocking(USART1, '\r');
+            usart_send_blocking(USART1, uart_buf[j]);
+        usart_send_blocking(USART1, '\r');
         usart_send_blocking(USART1, '\n');
 
         gpio_clear(GPIOB, GPIO6);
 
         /* This should set the CNV pin high and therfore start the conversion */
         gpio_set(GPIOB, GPIO6);
-
-        for (int j = 0; j < 800000; j++)
-        { /* Wait a bit. */
-            __asm__("nop");
-        }
 
         gpio_clear(GPIOB, GPIO6);
 
@@ -130,13 +128,13 @@ int main(void)
 
         /* Read a byte from ADC */
 
-        raw = gpio_get(GPIOA, GPIO6);
+        raw = spi_read(SPI1);
 
         spi_send(SPI1, 0x00);
 
         i++;
 
-        voltage = 65535.0 / (raw * 2.5);
+        voltage = raw * (5.0/65535); 
 
         snprintf(raw_buf, sizeof(raw_buf), "Raw digital value from ADC: %d", raw);
         raw_buf_len = strlen(raw_buf);
@@ -146,7 +144,7 @@ int main(void)
 
         usart_send_blocking(USART1, '\r');
         usart_send_blocking(USART1, '\n');
-     
+        
         snprintf(voltage_buf, sizeof(voltage_buf), "Voltage from ADC: %.02f", voltage);
         voltage_buf_len = strlen(voltage_buf);
 
@@ -154,7 +152,7 @@ int main(void)
             usart_send_blocking(USART1, voltage_buf[j]);
         usart_send_blocking(USART1, '\r');
         usart_send_blocking(USART1, '\n');
-		usart_send_blocking(USART1, '\n');
+        usart_send_blocking(USART1, '\n');
 
         gpio_toggle(PORT_LED, PIN_LED);
 

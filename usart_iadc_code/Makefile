@@ -17,9 +17,9 @@
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-BINARY = spi_eadc
+BINARY = usart_iadc
 
-LDSCRIPT = libopencm3-examples/examples/stm32/f0/stm32f0-discovery/stm32f0-discovery.ld
+LDSCRIPT = ../libopencm3-examples/examples/stm32/f0/stm32f0-discovery/stm32f0-discovery.ld
 
-include libopencm3-examples/examples/stm32/f0/Makefile.include
+include ../libopencm3-examples/examples/stm32/f0/Makefile.include
 
