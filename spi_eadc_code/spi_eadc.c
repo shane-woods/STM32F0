@@ -1,3 +1,7 @@
+#ifndef STM32F0
+#define STM32F0
+#endif
+
 #include "../libopencm3/include/libopencm3/stm32/rcc.h"
 #include "../libopencm3/include/libopencm3/stm32/adc.h"
 #include "../libopencm3/include/libopencm3/stm32/usart.h"
@@ -9,25 +13,35 @@
 #include <stdlib.h>
 
 
-static void clock_setup(void)
-{
+static void clock_setup(void) {
+
+    /* Enable clock at 48mhz */
+    rcc_clock_setup_in_hsi_out_48mhz();
+
     /* Enable clocks for GPIO port A */
     rcc_periph_clock_enable(RCC_GPIOA);
     
     /* Enable clocks for GPIO port B */
     rcc_periph_clock_enable(RCC_GPIOB);        
 
-    /* Enable SPI1 Periph and gpio clocks */
+    /* Enable clocks for SPI1 Periph for 16-bit external ADC  */
     rcc_periph_clock_enable(RCC_SPI1);
+
+    /* Enable clocks for USART1 */
+    rcc_periph_clock_enable(RCC_USART1);
+
+    /* CNV pulse to external ADC */
+    rcc_periph_clock_enable(RCC_TIM1);
+
+    /* Enable clocks for internal Housekeeping ADCs */
+    rcc_periph_clock_enable(RCC_ADC);       
+
+    /* Enable clock for DAC1 for sweeping (Haven't implemented this yet) */
+    rcc_periph_clock_enable(RCC_DAC1); 
 }
+
 static void spi_setup(void)
 {
-    /* Configure GPIOs: SS=PA4, SCK=PA5, MISO=PA6 and MOSI=PA7 */
-    gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO6);
-
-    gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO5 | GPIO6);
-	gpio_set_af(GPIOA, GPIO_AF0, GPIO5 | GPIO6);
-	gpio_set_output_options(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, GPIO5 | GPIO6);
 
     /* Reset SPI, SPI_CR1 register cleared, SPI is disabled */
     spi_reset(SPI1);
@@ -52,15 +66,15 @@ static void spi_setup(void)
      */
     spi_enable_software_slave_management(SPI1);
     spi_set_nss_high(SPI1);
+
     /* Enable SPI1 periph. */
     spi_enable(SPI1);
+
 }
 
 static void usart_setup(void)
 {
     /* Enable clocks for GPIO port A (for GPIO_USART2_TX) and USART1. */
-    rcc_periph_clock_enable(RCC_USART1);
-    rcc_periph_clock_enable(RCC_GPIOA);
     /* Setup GPIO pin GPIO_USART1_TX/GPIO9 on GPIO port A for transmit. */
     gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9);
     gpio_set_af(GPIOA, GPIO_AF1, GPIO9);
@@ -79,8 +93,7 @@ static void usart_setup(void)
 static void gpio_setup(void)
 {
     /* Enable GPIOC clock. */
-    /* Manually: */
-    // RCC_AHBENR |= RCC_AHBENR_GPIOCEN;
+    
     /* Using API functions: */
     rcc_periph_clock_enable(RCC_GPIOC);
     /* Set GPIO8 (in GPIO port C) to 'output push-pull'. */
@@ -116,20 +129,30 @@ int main(void)
         usart_send_blocking(USART1, '\r');
         usart_send_blocking(USART1, '\n');
 
-        gpio_clear(GPIOB, GPIO6);
+        // /* This should set the CNV pin high and therfore start the conversion */
+        // gpio_set(GPIOB, GPIO6);
 
-        /* This should set the CNV pin high and therfore start the conversion */
+        for (int j = 0; j < 800000; j++)
+        { /* Wait a bit. */
+            __asm__("nop");
+        }
+
         gpio_set(GPIOB, GPIO6);
-
+        for (int j = 0; j < 800000; j++)
+        { /* Wait a bit. */
+            __asm__("nop");
+        }
         gpio_clear(GPIOB, GPIO6);
+        
 
         /* Send a dummy byte because we just need to read from ADC */
         spi_send(SPI1, 0x00);
-
+        
         /* Read a byte from ADC */
-
         raw = spi_read(SPI1);
 
+
+        /* Send a dummy byte because we just need to read from ADC */
         spi_send(SPI1, 0x00);
 
         i++;
