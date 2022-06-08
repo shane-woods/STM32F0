@@ -12,37 +12,54 @@
 #include <string.h>
 #include <stdlib.h>
 
+/** @defgroup RCC Clock handles **/
+#define GPIO_CLOCKS RCC_GPIOA | RCC_GPIOB | RCC_GPIOC /* clocks for GPIO ports A & B */
+#define USART1_CLOCK RCC_USART1 /* clock for USART1 */
+#define SPI1_CLOCK RCC_SPI1 /* clock for SPI1 interface to 16-bit external ADC (AD7980) */
+#define TIMER1_CLOCK RCC_TIM1  /* CNV clock pulse to external ADC (AD7980) */
+#define IADC_CLOCK RCC_ADC  /* clocks for internal Housekeeping ADCs */
+#define DAC_CLOCK RCC_DAC /* clocks for DACs (I beleive this is for sweeping, haven't used yet) */
+
+/** @defgroup SPI Handles **/
+#define SPI_BUADRATE_PRESCALER SPI_CR1_BAUDRATE_FPCLK_DIV_32
+#define SPI_CLOCK_POLARITY_1 SPI_CR1_CPOL_CLK_TO_1_WHEN_IDLE
+#define SPI_CPHA_CLOCK_TRANSITION_2 SPI_CR1_CPHA_CLK_TRANSITION_2
+#define SPI_MSB_FIRST SPI_CR1_MSBFIRST
+
+/** @defgroup USART Handles **/
+#define USART_TX_GPIO_PORT GPIOA
+#define USART_TX_GPIO_PIN GPIO9
+#define TX_MODE USART_MODE_TX
+
+/** @defgroup GPIO Handles for on STM LEDs **/
+#define LED_PORT GPIOC
+#define BLUE_LED_PIN GPIO8
+#define GREEN_LED_PIN GPIO9
+
+/** @defgroup GPIO Handles for SPI **/
+#define SCK_GPIO_PORT GPIOA
+#define SCK_GPIO_PIN GPIO5
+#define MISO_GPIO_PORT GPIOA
+#define MISO_GPIO_PIN GPIO6
+#define CNV_GPIO_PORT GPIOB
+#define CNV_GPIO_PIN GPIO6
 
 static void clock_setup(void) {
 
     /* Enable clock at 48mhz */
     rcc_clock_setup_in_hsi_out_48mhz();
-
-    /* Enable clocks for GPIO port A */
-    rcc_periph_clock_enable(RCC_GPIOA);
     
-    /* Enable clocks for GPIO port B */
-    rcc_periph_clock_enable(RCC_GPIOB);        
-
-    /* Enable clocks for SPI1 Periph for 16-bit external ADC  */
-    rcc_periph_clock_enable(RCC_SPI1);
-
-    /* Enable clocks for USART1 */
-    rcc_periph_clock_enable(RCC_USART1);
-
-    /* CNV pulse to external ADC */
-    rcc_periph_clock_enable(RCC_TIM1);
-
-    /* Enable clocks for internal Housekeeping ADCs */
-    rcc_periph_clock_enable(RCC_ADC);       
-
-    /* Enable clock for DAC1 for sweeping (Haven't implemented this yet) */
-    rcc_periph_clock_enable(RCC_DAC1); 
+    rcc_periph_clock_enable(GPIO_CLOCKS);   
+    rcc_periph_clock_enable(SPI1_CLOCK);
+    rcc_periph_clock_enable(USART1_CLOCK);
+    rcc_periph_clock_enable(TIMER1_CLOCK);
+    rcc_periph_clock_enable(IADC_CLOCK);       
+    rcc_periph_clock_enable(DAC_CLOCK); 
 }
 
 static void spi_setup(void)
 {
-
+   
     /* Reset SPI, SPI_CR1 register cleared, SPI is disabled */
     spi_reset(SPI1);
 
@@ -53,8 +70,8 @@ static void spi_setup(void)
      * Data frame format: 8-bit
      * Frame format: MSB First
      */
-    spi_init_master(SPI1, SPI_CR1_BAUDRATE_FPCLK_DIV_64, SPI_CR1_CPOL_CLK_TO_1_WHEN_IDLE,
-                    SPI_CR1_CPHA_CLK_TRANSITION_2, SPI_CR1_MSBFIRST);
+    spi_init_master(SPI1, SPI_BUADRATE_PRESCALER, SPI_CLOCK_POLARITY_1,
+                    SPI_CPHA_CLOCK_TRANSITION_2, SPI_MSB_FIRST);
     
     /*
      * Set NSS management to software.
@@ -66,18 +83,16 @@ static void spi_setup(void)
      */
     spi_enable_software_slave_management(SPI1);
     spi_set_nss_high(SPI1);
-
     /* Enable SPI1 periph. */
     spi_enable(SPI1);
-
 }
 
 static void usart_setup(void)
 {
-    /* Enable clocks for GPIO port A (for GPIO_USART2_TX) and USART1. */
     /* Setup GPIO pin GPIO_USART1_TX/GPIO9 on GPIO port A for transmit. */
-    gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9);
-    gpio_set_af(GPIOA, GPIO_AF1, GPIO9);
+    gpio_mode_setup(USART_TX_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, USART_TX_GPIO_PIN);
+    gpio_set_af(USART_TX_GPIO_PORT, GPIO_AF1, USART_TX_GPIO_PIN);
+
     /* Setup UART parameters. */
     usart_set_baudrate(USART1, 115200);
     usart_set_databits(USART1, 8);
@@ -85,21 +100,33 @@ static void usart_setup(void)
     usart_set_mode(USART1, USART_MODE_TX);
     usart_set_parity(USART1, USART_PARITY_NONE);
     usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
+
     /* Finally enable the USART. */
     usart_enable(USART1);
 }
-#define PORT_LED GPIOC
-#define PIN_LED GPIO8
+
 static void gpio_setup(void)
 {
-    /* Enable GPIOC clock. */
-    
-    /* Using API functions: */
-    rcc_periph_clock_enable(RCC_GPIOC);
+    /** LED GPIO SETUP **/
     /* Set GPIO8 (in GPIO port C) to 'output push-pull'. */
-    /* Using API functions: */
-    gpio_mode_setup(PORT_LED, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, PIN_LED);
+    gpio_mode_setup(LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, BLUE_LED_PIN | GREEN_LED_PIN);
+
+    /** SPI GPIO SETUP **/
+    /* Configure CNV GPIO as PB6 */
+    gpio_mode_setup(CNV_GPIO_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, CNV_GPIO_PIN);
+
+    /* Configure SCK GPIO as PA5 */ 
+    gpio_mode_setup(SCK_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, SCK_GPIO_PIN);
+    gpio_set_af(SCK_GPIO_PORT, GPIO_AF0, SCK_GPIO_PIN);
+    gpio_set_output_options(SCK_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, SCK_GPIO_PIN);
+
+    /* Configure MISO GPIO as PA6 */
+    gpio_mode_setup(MISO_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, MISO_GPIO_PIN);
+    gpio_set_af(MISO_GPIO_PORT, GPIO_AF0, MISO_GPIO_PIN);
+	gpio_set_output_options(MISO_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, MISO_GPIO_PIN);
 }
+
+
 int main(void)
 {
     clock_setup();
@@ -151,10 +178,6 @@ int main(void)
         /* Read a byte from ADC */
         raw = spi_read(SPI1);
 
-
-        /* Send a dummy byte because we just need to read from ADC */
-        spi_send(SPI1, 0x00);
-
         i++;
 
         voltage = raw * (5.0/65535); 
@@ -177,7 +200,8 @@ int main(void)
         usart_send_blocking(USART1, '\n');
         usart_send_blocking(USART1, '\n');
 
-        gpio_toggle(PORT_LED, PIN_LED);
+        gpio_toggle(LED_PORT, BLUE_LED_PIN);
+        gpio_toggle(LED_PORT, GREEN_LED_PIN);
 
         for (int j = 0; j < 800000; j++)
         { /* Wait a bit. */
