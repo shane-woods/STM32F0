@@ -14,11 +14,11 @@
 
 /** @defgroup RCC Clock handles **/
 #define GPIO_CLOCKS RCC_GPIOA | RCC_GPIOB | RCC_GPIOC /* clocks for GPIO ports A & B */
-#define USART1_CLOCK RCC_USART1 /* clock for USART1 */
-#define SPI1_CLOCK RCC_SPI1 /* clock for SPI1 interface to 16-bit external ADC (AD7980) */
-#define TIMER1_CLOCK RCC_TIM1  /* CNV clock pulse to external ADC (AD7980) */
-#define IADC_CLOCK RCC_ADC  /* clocks for internal Housekeeping ADCs */
-#define DAC_CLOCK RCC_DAC /* clocks for DACs (I beleive this is for sweeping, haven't used yet) */
+#define USART1_CLOCK RCC_USART1                       /* clock for USART1 */
+#define SPI1_CLOCK RCC_SPI1                           /* clock for SPI1 interface to 16-bit external ADC (AD7980) */
+#define TIMER1_CLOCK RCC_TIM1                         /* CNV clock pulse to external ADC (AD7980) */
+#define IADC_CLOCK RCC_ADC                            /* clocks for internal Housekeeping ADCs */
+#define DAC_CLOCK RCC_DAC                             /* clocks for DACs (I beleive this is for sweeping, haven't used yet) */
 
 /** @defgroup SPI Handles **/
 #define SPI_BUADRATE_PRESCALER SPI_CR1_BAUDRATE_FPCLK_DIV_32
@@ -44,22 +44,23 @@
 #define CNV_GPIO_PORT GPIOB
 #define CNV_GPIO_PIN GPIO6
 
-static void clock_setup(void) {
+static void clock_setup(void)
+{
 
     /* Enable clock at 48mhz */
     rcc_clock_setup_in_hsi_out_48mhz();
-    
-    rcc_periph_clock_enable(GPIO_CLOCKS);   
+
+    rcc_periph_clock_enable(GPIO_CLOCKS);
     rcc_periph_clock_enable(SPI1_CLOCK);
     rcc_periph_clock_enable(USART1_CLOCK);
     rcc_periph_clock_enable(TIMER1_CLOCK);
-    rcc_periph_clock_enable(IADC_CLOCK);       
-    rcc_periph_clock_enable(DAC_CLOCK); 
+    rcc_periph_clock_enable(IADC_CLOCK);
+    rcc_periph_clock_enable(DAC_CLOCK);
 }
 
 static void spi_setup(void)
 {
-   
+
     /* Reset SPI, SPI_CR1 register cleared, SPI is disabled */
     spi_reset(SPI1);
 
@@ -72,7 +73,7 @@ static void spi_setup(void)
      */
     spi_init_master(SPI1, SPI_BUADRATE_PRESCALER, SPI_CLOCK_POLARITY_1,
                     SPI_CPHA_CLOCK_TRANSITION_2, SPI_MSB_FIRST);
-    
+
     /*
      * Set NSS management to software.
      *
@@ -87,8 +88,8 @@ static void spi_setup(void)
     spi_enable(SPI1);
 }
 
-static void timer_setup(void) {
-    
+static void timer_setup(void)
+{
 }
 
 static void usart_setup(void)
@@ -121,7 +122,7 @@ static void gpio_setup(void)
     gpio_set_af(CNV_GPIO_PORT, GPIO_AF2, CNV_GPIO_PIN);
     gpio_set_output_options(CNV_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, CNV_GPIO_PIN);
 
-    /* Configure SCK GPIO as PA5 */ 
+    /* Configure SCK GPIO as PA5 */
     gpio_mode_setup(SCK_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, SCK_GPIO_PIN);
     gpio_set_af(SCK_GPIO_PORT, GPIO_AF0, SCK_GPIO_PIN);
     gpio_set_output_options(SCK_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, SCK_GPIO_PIN);
@@ -129,10 +130,8 @@ static void gpio_setup(void)
     /* Configure MISO GPIO as PA6 */
     gpio_mode_setup(MISO_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, MISO_GPIO_PIN);
     gpio_set_af(MISO_GPIO_PORT, GPIO_AF0, MISO_GPIO_PIN);
-	gpio_set_output_options(MISO_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, MISO_GPIO_PIN);
-    
+    gpio_set_output_options(MISO_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, MISO_GPIO_PIN);
 }
-
 
 int main(void)
 {
@@ -140,7 +139,6 @@ int main(void)
     spi_setup();
     usart_setup();
     gpio_setup();
-
 
     /* Global variables */
     uint16_t raw;
@@ -153,7 +151,8 @@ int main(void)
     int voltage_buf_len;
     int i = 0;
 
-    while (1) {
+    while (1)
+    {
 
         // Transmit UART to verify everything is okay
         snprintf(uart_buf, sizeof(uart_buf), "SPI Test %d", i);
@@ -172,27 +171,26 @@ int main(void)
         }
 
         gpio_clear(GPIOB, GPIO6);
-        
 
         /* Send a dummy byte because we just need to read from ADC */
         spi_send(SPI1, 0x00);
-        
+
         /* Read a byte from ADC */
         raw = spi_read(SPI1);
 
         i++;
 
-        voltage = raw * (5.0/65535); 
+        voltage = raw * (5.0 / 65535);
 
         snprintf(raw_buf, sizeof(raw_buf), "Raw digital value from ADC: %d", raw);
         raw_buf_len = strlen(raw_buf);
 
-        for (int j = 0; j < raw_buf_len; j++) 
+        for (int j = 0; j < raw_buf_len; j++)
             usart_send_blocking(USART1, raw_buf[j]);
 
         usart_send_blocking(USART1, '\r');
         usart_send_blocking(USART1, '\n');
-        
+
         snprintf(voltage_buf, sizeof(voltage_buf), "Voltage from ADC: %.02f", voltage);
         voltage_buf_len = strlen(voltage_buf);
 
@@ -203,12 +201,10 @@ int main(void)
         usart_send_blocking(USART1, '\n');
 
         gpio_toggle(LED_PORT, BLUE_LED_PIN);
-        gpio_toggle(LED_PORT, GREEN_LED_PIN);
-
         for (int j = 0; j < 800000; j++)
         { /* Wait a bit. */
             __asm__("nop");
         }
+        gpio_toggle(LED_PORT, GREEN_LED_PIN);
     }
 }
-
