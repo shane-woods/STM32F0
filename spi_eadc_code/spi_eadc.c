@@ -87,6 +87,10 @@ static void spi_setup(void)
     spi_enable(SPI1);
 }
 
+static void timer_setup(void) {
+    
+}
+
 static void usart_setup(void)
 {
     /* Setup GPIO pin GPIO_USART1_TX/GPIO9 on GPIO port A for transmit. */
@@ -113,7 +117,9 @@ static void gpio_setup(void)
 
     /** SPI GPIO SETUP **/
     /* Configure CNV GPIO as PB6 */
-    gpio_mode_setup(CNV_GPIO_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, CNV_GPIO_PIN);
+    gpio_mode_setup(CNV_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, CNV_GPIO_PIN);
+    gpio_set_af(CNV_GPIO_PORT, GPIO_AF2, CNV_GPIO_PIN);
+    gpio_set_output_options(CNV_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, CNV_GPIO_PIN);
 
     /* Configure SCK GPIO as PA5 */ 
     gpio_mode_setup(SCK_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, SCK_GPIO_PIN);
@@ -124,6 +130,7 @@ static void gpio_setup(void)
     gpio_mode_setup(MISO_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, MISO_GPIO_PIN);
     gpio_set_af(MISO_GPIO_PORT, GPIO_AF0, MISO_GPIO_PIN);
 	gpio_set_output_options(MISO_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, MISO_GPIO_PIN);
+    
 }
 
 
@@ -133,9 +140,9 @@ int main(void)
     spi_setup();
     usart_setup();
     gpio_setup();
-    /*
-    Global variables
-    */
+
+
+    /* Global variables */
     uint16_t raw;
     double voltage;
     char uart_buf[20];
@@ -156,19 +163,14 @@ int main(void)
         usart_send_blocking(USART1, '\r');
         usart_send_blocking(USART1, '\n');
 
-        // /* This should set the CNV pin high and therfore start the conversion */
-        // gpio_set(GPIOB, GPIO6);
-
-        for (int j = 0; j < 800000; j++)
-        { /* Wait a bit. */
-            __asm__("nop");
-        }
-
+        /* This should set the CNV pin high and therfore start the conversion */
         gpio_set(GPIOB, GPIO6);
+
         for (int j = 0; j < 800000; j++)
         { /* Wait a bit. */
             __asm__("nop");
         }
+
         gpio_clear(GPIOB, GPIO6);
         
 
