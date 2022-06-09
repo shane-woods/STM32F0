@@ -30,6 +30,14 @@ spi_eadc.o: spi_eadc.c ../libopencm3/include/libopencm3/stm32/rcc.h \
  ../libopencm3//include/libopencm3/stm32/f0/spi.h \
  ../libopencm3//include/libopencm3/stm32/common/spi_common_v2.h \
  ../libopencm3//include/libopencm3/stm32/common/spi_common_all.h \
+ ../libopencm3/include/libopencm3/stm32/timer.h \
+ ../libopencm3//include/libopencm3/stm32/f0/timer.h \
+ ../libopencm3//include/libopencm3/stm32/common/timer_common_f24.h \
+ ../libopencm3//include/libopencm3/stm32/common/timer_common_all.h \
+ ../libopencm3/include/libopencm3/cm3/nvic.h \
+ ../libopencm3//include/libopencm3/dispatch/nvic.h \
+ ../libopencm3//include/libopencm3/stm32/f0/nvic.h \
+ ../libopencm3//include/libopencm3/cm3/nvic.h \
  /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/stdio.h \
  /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/_ansi.h \
  /Users/shanewoods/Library/xPacks/@xpack-dev-tools/arm-none-eabi-gcc/10.3.1-2.3.1/.content/arm-none-eabi/include/newlib.h \
