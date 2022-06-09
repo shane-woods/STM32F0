@@ -7,6 +7,8 @@
 #include "../libopencm3/include/libopencm3/stm32/usart.h"
 #include "../libopencm3/include/libopencm3/stm32/gpio.h"
 #include "../libopencm3/include/libopencm3/stm32/spi.h"
+#include "../libopencm3/include/libopencm3/stm32/timer.h"
+#include "../libopencm3/include/libopencm3/cm3/nvic.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -41,8 +43,8 @@
 #define SCK_GPIO_PIN GPIO5
 #define MISO_GPIO_PORT GPIOA
 #define MISO_GPIO_PIN GPIO6
-#define CNV_GPIO_PORT GPIOB
-#define CNV_GPIO_PIN GPIO6
+#define CNV_GPIO_PORT GPIOA
+#define CNV_GPIO_PIN GPIO8
 
 static void clock_setup(void)
 {
@@ -90,6 +92,22 @@ static void spi_setup(void)
 
 static void timer_setup(void)
 {
+    // Set up TIMER 1 to generate CNV pulse
+    // timer_reset(TIM1);
+
+    timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_TOGGLE); // TIM1_CH1 CNV
+    timer_enable_oc_output(TIM1, TIM_OC1);
+    timer_enable_break_main_output(TIM1);
+    timer_set_oc_value(TIM1, TIM_OC1, 12000 >> 1);
+    timer_set_prescaler(TIM1, 4799); // need prescale TIM1 is 16-bit
+    timer_set_period(TIM1, 12000 - 1);
+
+    // interrupt on CNV leading edge
+    // timer_generate_event(TIM1, TIM_EGR_CC1G | TIM_EGR_TG);
+    // nvic_enable_irq(NVIC_TIM1_CC_IRQ);
+    // timer_enable_irq(TIM1, TIM_DIER_CC1IE);
+
+    TIM_CR1(TIM1) |= TIM_CR1_CEN; // Start timer
 }
 
 static void usart_setup(void)
@@ -139,9 +157,13 @@ int main(void)
     spi_setup();
     usart_setup();
     gpio_setup();
+    timer_setup();
 
-    /* Global variables */
+    /* variables */
     uint16_t raw;
+    uint16_t timer_value;
+    char timer_buf[50];
+    int timer_buf_len;
     double voltage;
     char uart_buf[20];
     int uart_buf_len;
@@ -151,60 +173,84 @@ int main(void)
     int voltage_buf_len;
     int i = 0;
 
+    gpio_clear(LED_PORT, BLUE_LED_PIN | GREEN_LED_PIN);
+    timer_value = timer_get_counter(TIM1);
+
     while (1)
     {
 
+        if (timer_get_counter(TIM1) - timer_value >= 10000)
+        {
+            gpio_toggle(LED_PORT, BLUE_LED_PIN);
+
+            snprintf(timer_buf, sizeof(timer_buf), "Timer test before reset: %u", timer_value);
+            timer_buf_len = strlen(timer_buf);
+            for (int j = 0; j < timer_buf_len; j++)
+                usart_send_blocking(USART1, timer_buf[j]);
+            usart_send_blocking(USART1, '\r');
+            usart_send_blocking(USART1, '\n');
+
+            timer_value = timer_get_counter(TIM1);
+
+            snprintf(timer_buf, sizeof(timer_buf), "Timer test after reset: %u", timer_value);
+            timer_buf_len = strlen(timer_buf);
+            for (int j = 0; j < timer_buf_len; j++)
+                usart_send_blocking(USART1, timer_buf[j]);
+            usart_send_blocking(USART1, '\r');
+            usart_send_blocking(USART1, '\n');
+            usart_send_blocking(USART1, '\n');
+        }
+
         // Transmit UART to verify everything is okay
-        snprintf(uart_buf, sizeof(uart_buf), "SPI Test %d", i);
-        uart_buf_len = strlen(uart_buf);
-        for (int j = 0; j < uart_buf_len; j++)
-            usart_send_blocking(USART1, uart_buf[j]);
-        usart_send_blocking(USART1, '\r');
-        usart_send_blocking(USART1, '\n');
+        // snprintf(uart_buf, sizeof(uart_buf), "SPI Test %d", i);
+        // uart_buf_len = strlen(uart_buf);
+        // for (int j = 0; j < uart_buf_len; j++)
+        //     usart_send_blocking(USART1, uart_buf[j]);
+        // usart_send_blocking(USART1, '\r');
+        // usart_send_blocking(USART1, '\n');
 
-        /* This should set the CNV pin high and therfore start the conversion */
-        gpio_set(GPIOB, GPIO6);
+        // /* This should set the CNV pin high and therfore start the conversion */
+        // gpio_set(GPIOB, GPIO6);
 
-        for (int j = 0; j < 800000; j++)
-        { /* Wait a bit. */
-            __asm__("nop");
-        }
+        // for (int j = 0; j < 800000; j++)
+        // { /* Wait a bit. */
+        //     __asm__("nop");
+        // }
 
-        gpio_clear(GPIOB, GPIO6);
+        // gpio_clear(GPIOB, GPIO6);
 
-        /* Send a dummy byte because we just need to read from ADC */
-        spi_send(SPI1, 0x00);
+        // /* Send a dummy byte because we just need to read from ADC */
+        // spi_send(SPI1, 0x00);
 
-        /* Read a byte from ADC */
-        raw = spi_read(SPI1);
+        // /* Read a byte from ADC */
+        // raw = spi_read(SPI1);
 
-        i++;
+        // i++;
 
-        voltage = raw * (5.0 / 65535);
+        // voltage = raw * (5.0 / 65535);
 
-        snprintf(raw_buf, sizeof(raw_buf), "Raw digital value from ADC: %d", raw);
-        raw_buf_len = strlen(raw_buf);
+        // snprintf(raw_buf, sizeof(raw_buf), "Raw digital value from ADC: %d", raw);
+        // raw_buf_len = strlen(raw_buf);
 
-        for (int j = 0; j < raw_buf_len; j++)
-            usart_send_blocking(USART1, raw_buf[j]);
+        // for (int j = 0; j < raw_buf_len; j++)
+        //     usart_send_blocking(USART1, raw_buf[j]);
 
-        usart_send_blocking(USART1, '\r');
-        usart_send_blocking(USART1, '\n');
+        // usart_send_blocking(USART1, '\r');
+        // usart_send_blocking(USART1, '\n');
 
-        snprintf(voltage_buf, sizeof(voltage_buf), "Voltage from ADC: %.02f", voltage);
-        voltage_buf_len = strlen(voltage_buf);
+        // snprintf(voltage_buf, sizeof(voltage_buf), "Voltage from ADC: %.02f", voltage);
+        // voltage_buf_len = strlen(voltage_buf);
 
-        for (int j = 0; j < voltage_buf_len; j++)
-            usart_send_blocking(USART1, voltage_buf[j]);
-        usart_send_blocking(USART1, '\r');
-        usart_send_blocking(USART1, '\n');
-        usart_send_blocking(USART1, '\n');
+        // for (int j = 0; j < voltage_buf_len; j++)
+        //     usart_send_blocking(USART1, voltage_buf[j]);
+        // usart_send_blocking(USART1, '\r');
+        // usart_send_blocking(USART1, '\n');
+        // usart_send_blocking(USART1, '\n');
 
-        gpio_toggle(LED_PORT, BLUE_LED_PIN);
-        for (int j = 0; j < 800000; j++)
-        { /* Wait a bit. */
-            __asm__("nop");
-        }
-        gpio_toggle(LED_PORT, GREEN_LED_PIN);
+        // for (int j = 0; j < 800000; j++)
+        // { /* Wait a bit. */
+        //     __asm__("nop");
+        // }
+
     }
 }
