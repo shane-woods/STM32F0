@@ -7,3 +7,7 @@ libopencm3-examples/*
 **/map
 *.d
 **/d
+*.bin
+**/bin
+*.elf
+**/elf
