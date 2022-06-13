@@ -1,3 +1,22 @@
+/**
+ * @file spi_eadc.c
+ * @author Shane Wooods and Jared King
+ * @brief Code to read voltage from a 16-bit external ADC (AD7980)
+ * @version 0.1
+ * @date 2022-06-13
+ *
+ * IC pin Configuration for AD7980
+ *
+ *               AD7980 +--------+ AD7980
+ *  +5v   <----> Vref 1 |        | 10 VIO <---> +3.3v
+ *  +2.5v <----> Vdd  2 |        | 9  SDI <---> VIO
+ *  +2.5v <----> IN+  3 |        | 8  SCK <---> STM32 PA5 (CLOCK)
+ *  GND   <----> IN-  4 |        | 7  SDO <---> STM32 PA6 (MOSI)
+ *  GND   <----> GND  5 |        | 6  CNV <---> STM32 PA8 (TIM1)
+ *                      +--------+
+ *
+ */
+
 #ifndef STM32F0
 #define STM32F0
 #endif
@@ -95,15 +114,13 @@ static void spi_setup(void)
 
 static void timer_setup(void)
 {
-    // Set up TIMER 1 to generate CNV pulse
-    // timer_reset(TIM1);
 
     timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_TOGGLE); // TIM1_CH1 CNV
     timer_enable_oc_output(TIM1, TIM_OC1);
     timer_enable_break_main_output(TIM1);
-    timer_set_oc_value(TIM1, TIM_OC1, 12000 >> 1);
+    timer_set_oc_value(TIM1, TIM_OC1, 48000 >> 1);
     timer_set_prescaler(TIM1, 47); // need prescale TIM1 is 16-bit
-    timer_set_period(TIM1, 12000 - 1);
+    timer_set_period(TIM1, 72000 - 1);
 
     // interrupt on CNV leading edge
     timer_generate_event(TIM1, TIM_EGR_CC1G | TIM_EGR_TG);
@@ -158,9 +175,12 @@ void tim1_cc_isr(void)
 {
     char uart_buf[50];
     int uart_buf_len;
+    int raw;
+    char raw_buf[50];
+    int raw_buf_len;
 
     // Transmit UART to verify everything is okay
-    snprintf(uart_buf, sizeof(uart_buf), "INTERRUPT CALLED");
+    snprintf(uart_buf, sizeof(uart_buf), "INTERRUPT, Timer Value: %d", timer_get_counter(TIM1));
 
     uart_buf_len = strlen(uart_buf);
     for (int j = 0; j < uart_buf_len; j++)
@@ -170,6 +190,17 @@ void tim1_cc_isr(void)
 
     while (!(SPI1_SR & SPI_SR_RXNE))
         ; // wait for SPI transfer complete
+
+    raw = SPI1_DR;
+
+    snprintf(raw_buf, sizeof(raw_buf), "Raw value: %d", raw);
+    raw_buf_len = strlen(raw_buf);
+    for (int i = 0; i < raw_buf_len; i++)
+    {
+        usart_send_blocking(USART1, raw_buf[i]);
+    }
+    usart_send_blocking(USART1, '\r');
+    usart_send_blocking(USART1, '\n');
 
     // extern ADC readout completed. Force CNV low
     TIM1_CCMR1 = TIM_CCMR1_OC1M_FORCE_LOW; // (assumes all other bits are zero)
@@ -209,16 +240,10 @@ int main(void)
         usart_send_blocking(USART1, '\r');
         usart_send_blocking(USART1, '\n');
 
-        timer_value = timer_get_counter(TIM1);
-
         /* This should set the CNV pin high and therfore start the conversion  on the ADC */
         gpio_set(GPIOB, GPIO6);
 
         /* There should potentially be a delay here? */
-
-        while (timer_get_counter(TIM1) - timer_value <= 10000)
-            ;
-
         /**
          * Set the CNV pin low
          * This should begin the aquisition phase
@@ -257,7 +282,7 @@ int main(void)
         usart_send_blocking(USART1, '\n');
         usart_send_blocking(USART1, '\n');
 
-        for (int j = 0; j < 800000; j++)
+        for (int j = 0; j < 1000000; j++)
         { /* Wait a bit. */
             __asm__("nop");
         }
