@@ -11,3 +11,4 @@ libopencm3-examples/*
 **/bin
 *.elf
 **/elf
+.DS_Store
