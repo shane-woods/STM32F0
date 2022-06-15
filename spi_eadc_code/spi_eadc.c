@@ -43,8 +43,8 @@
 #define SCK_GPIO_PIN GPIO5
 #define MISO_GPIO_PORT GPIOA
 #define MISO_GPIO_PIN GPIO6
-#define CNV_GPIO_PORT GPIOA
-#define CNV_GPIO_PIN GPIO8
+#define CNV_GPIO_PORT GPIOB
+#define CNV_GPIO_PIN GPIO6
 
 static void clock_setup(void)
 {
@@ -76,6 +76,9 @@ static void spi_setup(void)
     spi_init_master(SPI1, SPI_BUADRATE_PRESCALER, SPI_CLOCK_POLARITY_1,
                     SPI_CPHA_CLOCK_TRANSITION_2, SPI_MSB_FIRST);
 
+    /* Set up SPI for half duplex */
+    spi_set_receive_only_mode(SPI1);
+
     /*
      * Set NSS management to software.
      *
@@ -99,13 +102,13 @@ static void timer_setup(void)
     timer_enable_oc_output(TIM1, TIM_OC1);
     timer_enable_break_main_output(TIM1);
     timer_set_oc_value(TIM1, TIM_OC1, 12000 >> 1);
-    timer_set_prescaler(TIM1, 4799); // need prescale TIM1 is 16-bit
+    timer_set_prescaler(TIM1, 47); // need prescale TIM1 is 16-bit
     timer_set_period(TIM1, 12000 - 1);
 
     // interrupt on CNV leading edge
-    // timer_generate_event(TIM1, TIM_EGR_CC1G | TIM_EGR_TG);
-    // nvic_enable_irq(NVIC_TIM1_CC_IRQ);
-    // timer_enable_irq(TIM1, TIM_DIER_CC1IE);
+    timer_generate_event(TIM1, TIM_EGR_CC1G | TIM_EGR_TG);
+    nvic_enable_irq(NVIC_TIM1_CC_IRQ);
+    timer_enable_irq(TIM1, TIM_DIER_CC1IE);
 
     TIM_CR1(TIM1) |= TIM_CR1_CEN; // Start timer
 }
@@ -151,6 +154,30 @@ static void gpio_setup(void)
     gpio_set_output_options(MISO_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, MISO_GPIO_PIN);
 }
 
+void tim1_cc_isr(void)
+{
+    char uart_buf[50];
+    int uart_buf_len;
+
+    // Transmit UART to verify everything is okay
+    snprintf(uart_buf, sizeof(uart_buf), "INTERRUPT CALLED");
+
+    uart_buf_len = strlen(uart_buf);
+    for (int j = 0; j < uart_buf_len; j++)
+        usart_send_blocking(USART1, uart_buf[j]);
+    usart_send_blocking(USART1, '\r');
+    usart_send_blocking(USART1, '\n');
+
+    while (!(SPI1_SR & SPI_SR_RXNE))
+        ; // wait for SPI transfer complete
+
+    // extern ADC readout completed. Force CNV low
+    TIM1_CCMR1 = TIM_CCMR1_OC1M_FORCE_LOW; // (assumes all other bits are zero)
+    TIM1_CCMR1 = TIM_CCMR1_OC1M_TOGGLE;
+
+    TIM1_SR = ~TIM_SR_CC1IF; // clear interrupt
+}
+
 int main(void)
 {
     clock_setup();
@@ -162,8 +189,6 @@ int main(void)
     /* variables */
     uint16_t raw;
     uint16_t timer_value;
-    char timer_buf[50];
-    int timer_buf_len;
     double voltage;
     char uart_buf[20];
     int uart_buf_len;
@@ -173,83 +198,68 @@ int main(void)
     int voltage_buf_len;
     int i = 0;
 
-    gpio_clear(LED_PORT, BLUE_LED_PIN | GREEN_LED_PIN);
-    timer_value = timer_get_counter(TIM1);
-
     while (1)
     {
 
-        if (timer_get_counter(TIM1) - timer_value >= 10000)
-        {
-            gpio_toggle(LED_PORT, BLUE_LED_PIN);
-
-            snprintf(timer_buf, sizeof(timer_buf), "Timer test before reset: %u", timer_value);
-            timer_buf_len = strlen(timer_buf);
-            for (int j = 0; j < timer_buf_len; j++)
-                usart_send_blocking(USART1, timer_buf[j]);
-            usart_send_blocking(USART1, '\r');
-            usart_send_blocking(USART1, '\n');
-
-            timer_value = timer_get_counter(TIM1);
-
-            snprintf(timer_buf, sizeof(timer_buf), "Timer test after reset: %u", timer_value);
-            timer_buf_len = strlen(timer_buf);
-            for (int j = 0; j < timer_buf_len; j++)
-                usart_send_blocking(USART1, timer_buf[j]);
-            usart_send_blocking(USART1, '\r');
-            usart_send_blocking(USART1, '\n');
-            usart_send_blocking(USART1, '\n');
-        }
-
         // Transmit UART to verify everything is okay
-        // snprintf(uart_buf, sizeof(uart_buf), "SPI Test %d", i);
-        // uart_buf_len = strlen(uart_buf);
-        // for (int j = 0; j < uart_buf_len; j++)
-        //     usart_send_blocking(USART1, uart_buf[j]);
-        // usart_send_blocking(USART1, '\r');
-        // usart_send_blocking(USART1, '\n');
+        snprintf(uart_buf, sizeof(uart_buf), "SPI Test %d", i);
+        uart_buf_len = strlen(uart_buf);
+        for (int j = 0; j < uart_buf_len; j++)
+            usart_send_blocking(USART1, uart_buf[j]);
+        usart_send_blocking(USART1, '\r');
+        usart_send_blocking(USART1, '\n');
 
-        // /* This should set the CNV pin high and therfore start the conversion */
-        // gpio_set(GPIOB, GPIO6);
+        timer_value = timer_get_counter(TIM1);
 
-        // for (int j = 0; j < 800000; j++)
-        // { /* Wait a bit. */
-        //     __asm__("nop");
-        // }
+        /* This should set the CNV pin high and therfore start the conversion  on the ADC */
+        gpio_set(GPIOB, GPIO6);
 
-        // gpio_clear(GPIOB, GPIO6);
+        /* There should potentially be a delay here? */
 
-        // /* Send a dummy byte because we just need to read from ADC */
-        // spi_send(SPI1, 0x00);
+        while (timer_get_counter(TIM1) - timer_value <= 10000)
+            ;
 
-        // /* Read a byte from ADC */
-        // raw = spi_read(SPI1);
+        /**
+         * Set the CNV pin low
+         * This should begin the aquisition phase
+         * The ADC will put MSB to LSB on the SDO pin of the ADC (one bit at a time)s
+         *
+         */
+        gpio_clear(GPIOB, GPIO6);
 
-        // i++;
+        /**
+         * Send a dummy byte because we just need to read from ADC
+         * (This is because we have ADC set up in full-duplex and didn't know to
+         * do it in half duplex, so the progrma hangs if you read without sending
+         */
 
-        // voltage = raw * (5.0 / 65535);
+        /* Read a byte from ADC */
+        raw = spi_read(SPI1);
 
-        // snprintf(raw_buf, sizeof(raw_buf), "Raw digital value from ADC: %d", raw);
-        // raw_buf_len = strlen(raw_buf);
+        /* SPI Test counter */
+        i++;
 
-        // for (int j = 0; j < raw_buf_len; j++)
-        //     usart_send_blocking(USART1, raw_buf[j]);
+        /**
+         * Calculating voltage
+         * 65535 because ADC is 16 bits
+         * 5.0 because that is Vref for ADC
+         * raw is the raw digital value from ADC
+         */
+        voltage = raw * (5.0 / 65535);
 
-        // usart_send_blocking(USART1, '\r');
-        // usart_send_blocking(USART1, '\n');
+        /* Transmit the voltage value */
+        snprintf(voltage_buf, sizeof(voltage_buf), "Voltage from ADC: %.02f", voltage);
+        voltage_buf_len = strlen(voltage_buf);
 
-        // snprintf(voltage_buf, sizeof(voltage_buf), "Voltage from ADC: %.02f", voltage);
-        // voltage_buf_len = strlen(voltage_buf);
+        for (int j = 0; j < voltage_buf_len; j++)
+            usart_send_blocking(USART1, voltage_buf[j]);
+        usart_send_blocking(USART1, '\r');
+        usart_send_blocking(USART1, '\n');
+        usart_send_blocking(USART1, '\n');
 
-        // for (int j = 0; j < voltage_buf_len; j++)
-        //     usart_send_blocking(USART1, voltage_buf[j]);
-        // usart_send_blocking(USART1, '\r');
-        // usart_send_blocking(USART1, '\n');
-        // usart_send_blocking(USART1, '\n');
-
-        // for (int j = 0; j < 800000; j++)
-        // { /* Wait a bit. */
-        //     __asm__("nop");
-        // }
+        for (int j = 0; j < 1000000; j++)
+        { /* Wait a bit. */
+            __asm__("nop");
+        }
     }
 }
