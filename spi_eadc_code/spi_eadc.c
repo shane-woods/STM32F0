@@ -14,7 +14,6 @@
  *  GND   <----> IN-  4 |        | 7  SDO <---> STM32 PA6 (MOSI)
  *  GND   <----> GND  5 |        | 6  CNV <---> STM32 PA8 (TIM1)
  *                      +--------+
- *
  */
 
 #ifndef STM32F0
@@ -62,8 +61,8 @@
 #define SCK_GPIO_PIN GPIO5
 #define MISO_GPIO_PORT GPIOA
 #define MISO_GPIO_PIN GPIO6
-#define CNV_GPIO_PORT GPIOB
-#define CNV_GPIO_PIN GPIO6
+#define CNV_GPIO_PORT GPIOA
+#define CNV_GPIO_PIN GPIO8
 
 static void clock_setup(void)
 {
@@ -115,18 +114,26 @@ static void spi_setup(void)
 static void timer_setup(void)
 {
 
-    timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_TOGGLE); // TIM1_CH1 CNV
+    /* Disable/Reset Timer? */
+
+    timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_PWM1); // TIM1_CH1 CNV
     timer_enable_oc_output(TIM1, TIM_OC1);
     timer_enable_break_main_output(TIM1);
     timer_set_oc_value(TIM1, TIM_OC1, 48000 >> 1);
-    timer_set_prescaler(TIM1, 47); // need prescale TIM1 is 16-bit
-    timer_set_period(TIM1, 72000 - 1);
+    timer_set_prescaler(TIM1, 479); // need prescale TIM1 is 16-bit
+    timer_set_period(TIM1, 48000 - 1);
+    timer_disable_preload(TIM1);
+    timer_continuous_mode(TIM1);
 
     // interrupt on CNV leading edge
     timer_generate_event(TIM1, TIM_EGR_CC1G | TIM_EGR_TG);
     nvic_enable_irq(NVIC_TIM1_CC_IRQ);
     timer_enable_irq(TIM1, TIM_DIER_CC1IE);
 
+    /**
+     * I think we would use this instead of timer_enable(TIM1)
+     * since we are using interupts
+     */
     TIM_CR1(TIM1) |= TIM_CR1_CEN; // Start timer
 }
 
@@ -135,6 +142,9 @@ static void usart_setup(void)
     /* Setup GPIO pin GPIO_USART1_TX/GPIO9 on GPIO port A for transmit. */
     gpio_mode_setup(USART_TX_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, USART_TX_GPIO_PIN);
     gpio_set_af(USART_TX_GPIO_PORT, GPIO_AF1, USART_TX_GPIO_PIN);
+
+    /* Disable USART, might help with not transmitting sometimes */
+    usart_disable(USART1);
 
     /* Setup UART parameters. */
     usart_set_baudrate(USART1, 115200);
@@ -155,7 +165,7 @@ static void gpio_setup(void)
     gpio_mode_setup(LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, BLUE_LED_PIN | GREEN_LED_PIN);
 
     /** SPI GPIO SETUP **/
-    /* Configure CNV GPIO as PB6 */
+    /* Configure CNV GPIO as PA8 (TIM1_CH1) */
     gpio_mode_setup(CNV_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, CNV_GPIO_PIN);
     gpio_set_af(CNV_GPIO_PORT, GPIO_AF2, CNV_GPIO_PIN);
     gpio_set_output_options(CNV_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, CNV_GPIO_PIN);
@@ -178,6 +188,8 @@ void tim1_cc_isr(void)
     int raw;
     char raw_buf[50];
     int raw_buf_len;
+
+    gpio_toggle(LED_PORT, BLUE_LED_PIN);
 
     // Transmit UART to verify everything is okay
     snprintf(uart_buf, sizeof(uart_buf), "INTERRUPT, Timer Value: %d", timer_get_counter(TIM1));
@@ -235,10 +247,14 @@ int main(void)
         // Transmit UART to verify everything is okay
         snprintf(uart_buf, sizeof(uart_buf), "SPI Test %d", i);
         uart_buf_len = strlen(uart_buf);
+
         for (int j = 0; j < uart_buf_len; j++)
             usart_send_blocking(USART1, uart_buf[j]);
         usart_send_blocking(USART1, '\r');
         usart_send_blocking(USART1, '\n');
+
+        /* SPI Test counter */
+        i++;
 
         /* This should set the CNV pin high and therfore start the conversion  on the ADC */
         gpio_set(GPIOB, GPIO6);
@@ -252,17 +268,8 @@ int main(void)
          */
         gpio_clear(GPIOB, GPIO6);
 
-        /**
-         * Send a dummy byte because we just need to read from ADC
-         * (This is because we have ADC set up in full-duplex and didn't know to
-         * do it in half duplex, so the progrma hangs if you read without sending
-         */
-
         /* Read a byte from ADC */
         raw = spi_read(SPI1);
-
-        /* SPI Test counter */
-        i++;
 
         /**
          * Calculating voltage
