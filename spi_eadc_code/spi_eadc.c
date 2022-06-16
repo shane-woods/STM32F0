@@ -119,10 +119,10 @@ static void timer_setup(void)
     timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_PWM1); // TIM1_CH1 CNV
     timer_enable_oc_output(TIM1, TIM_OC1);
     timer_enable_break_main_output(TIM1);
-    timer_set_oc_value(TIM1, TIM_OC1, 48000 >> 1);
-    timer_set_prescaler(TIM1, 479); // need prescale TIM1 is 16-bit
+    timer_set_oc_value(TIM1, TIM_OC1, 12000);
+    timer_set_prescaler(TIM1, 47); // need prescale TIM1 is 16-bit
     timer_set_period(TIM1, 48000 - 1);
-    timer_disable_preload(TIM1);
+    timer_enable_preload(TIM1);
     timer_continuous_mode(TIM1);
 
     // interrupt on CNV leading edge
@@ -186,8 +186,9 @@ void tim1_cc_isr(void)
     char uart_buf[50];
     int uart_buf_len;
     int raw;
-    char raw_buf[50];
-    int raw_buf_len;
+    char voltage_buf[50];
+    int voltage_buf_len;
+    double voltage;
 
     gpio_toggle(LED_PORT, BLUE_LED_PIN);
 
@@ -205,13 +206,24 @@ void tim1_cc_isr(void)
 
     raw = SPI1_DR;
 
-    snprintf(raw_buf, sizeof(raw_buf), "Raw value: %d", raw);
-    raw_buf_len = strlen(raw_buf);
-    for (int i = 0; i < raw_buf_len; i++)
-    {
-        usart_send_blocking(USART1, raw_buf[i]);
-    }
+    gpio_toggle(LED_PORT, GREEN_LED_PIN);
+
+    /**
+     * Calculating voltage
+     * 65535 because ADC is 16 bits
+     * 5.0 because that is Vref for ADC
+     * raw is the raw digital value from ADC
+     */
+    voltage = raw * (5.0 / 65535);
+
+    /* Transmit the voltage value */
+    snprintf(voltage_buf, sizeof(voltage_buf), "Voltage from ADC: %.02f", voltage);
+    voltage_buf_len = strlen(voltage_buf);
+
+    for (int j = 0; j < voltage_buf_len; j++)
+        usart_send_blocking(USART1, voltage_buf[j]);
     usart_send_blocking(USART1, '\r');
+    usart_send_blocking(USART1, '\n');
     usart_send_blocking(USART1, '\n');
 
     // extern ADC readout completed. Force CNV low
@@ -256,40 +268,7 @@ int main(void)
         /* SPI Test counter */
         i++;
 
-        /* This should set the CNV pin high and therfore start the conversion  on the ADC */
-        gpio_set(GPIOB, GPIO6);
-
-        /* There should potentially be a delay here? */
-        /**
-         * Set the CNV pin low
-         * This should begin the aquisition phase
-         * The ADC will put MSB to LSB on the SDO pin of the ADC (one bit at a time)s
-         *
-         */
-        gpio_clear(GPIOB, GPIO6);
-
-        /* Read a byte from ADC */
-        raw = spi_read(SPI1);
-
-        /**
-         * Calculating voltage
-         * 65535 because ADC is 16 bits
-         * 5.0 because that is Vref for ADC
-         * raw is the raw digital value from ADC
-         */
-        voltage = raw * (5.0 / 65535);
-
-        /* Transmit the voltage value */
-        snprintf(voltage_buf, sizeof(voltage_buf), "Voltage from ADC: %.02f", voltage);
-        voltage_buf_len = strlen(voltage_buf);
-
-        for (int j = 0; j < voltage_buf_len; j++)
-            usart_send_blocking(USART1, voltage_buf[j]);
-        usart_send_blocking(USART1, '\r');
-        usart_send_blocking(USART1, '\n');
-        usart_send_blocking(USART1, '\n');
-
-        for (int j = 0; j < 1000000; j++)
+        for (int j = 0; j < 800000; j++)
         { /* Wait a bit. */
             __asm__("nop");
         }
