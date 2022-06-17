@@ -85,7 +85,7 @@ static void spi_setup(void)
     spi_reset(SPI1);
 
     /* Set up SPI in Master mode with:
-     * Clock baud rate: 1/64 of peripheral clock frequency
+     * Clock baud rate: 1/32 of peripheral clock frequency
      * Clock polarity: Idle High
      * Clock phase: Data valid on 2nd clock pulse
      * Data frame format: 8-bit
@@ -93,9 +93,6 @@ static void spi_setup(void)
      */
     spi_init_master(SPI1, SPI_BUADRATE_PRESCALER, SPI_CLOCK_POLARITY_1,
                     SPI_CPHA_CLOCK_TRANSITION_2, SPI_MSB_FIRST);
-
-    /* Set up SPI for half duplex */
-    spi_set_receive_only_mode(SPI1);
 
     /*
      * Set NSS management to software.
@@ -116,16 +113,15 @@ static void timer_setup(void)
 
     /* Disable/Reset Timer? */
 
-    timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_PWM1); // TIM1_CH1 CNV
+    timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_PWM1);
     timer_enable_oc_output(TIM1, TIM_OC1);
     timer_enable_break_main_output(TIM1);
-    timer_set_oc_value(TIM1, TIM_OC1, 12000);
-    timer_set_prescaler(TIM1, 47); // need prescale TIM1 is 16-bit
+    timer_set_oc_value(TIM1, TIM_OC1, 12000); /* 1/4 of the period, 25% duty cycle */
+    timer_set_prescaler(TIM1, 47);
     timer_set_period(TIM1, 48000 - 1);
     timer_enable_preload(TIM1);
     timer_continuous_mode(TIM1);
 
-    // interrupt on CNV leading edge
     timer_generate_event(TIM1, TIM_EGR_CC1G | TIM_EGR_TG);
     nvic_enable_irq(NVIC_TIM1_CC_IRQ);
     timer_enable_irq(TIM1, TIM_DIER_CC1IE);
@@ -190,23 +186,14 @@ void tim1_cc_isr(void)
     int voltage_buf_len;
     double voltage;
 
+    /* Toggle Blue LED on interrupt */
     gpio_toggle(LED_PORT, BLUE_LED_PIN);
-
-    // Transmit UART to verify everything is okay
-    snprintf(uart_buf, sizeof(uart_buf), "INTERRUPT, Timer Value: %d", timer_get_counter(TIM1));
-
-    uart_buf_len = strlen(uart_buf);
-    for (int j = 0; j < uart_buf_len; j++)
-        usart_send_blocking(USART1, uart_buf[j]);
-    usart_send_blocking(USART1, '\r');
-    usart_send_blocking(USART1, '\n');
 
     while (!(SPI1_SR & SPI_SR_RXNE))
         ; // wait for SPI transfer complete
 
+    /* Get raw adc value from data register */
     raw = SPI1_DR;
-
-    gpio_toggle(LED_PORT, GREEN_LED_PIN);
 
     /**
      * Calculating voltage
@@ -215,16 +202,6 @@ void tim1_cc_isr(void)
      * raw is the raw digital value from ADC
      */
     voltage = raw * (5.0 / 65535);
-
-    /* Transmit the voltage value */
-    snprintf(voltage_buf, sizeof(voltage_buf), "Voltage from ADC: %.02f", voltage);
-    voltage_buf_len = strlen(voltage_buf);
-
-    for (int j = 0; j < voltage_buf_len; j++)
-        usart_send_blocking(USART1, voltage_buf[j]);
-    usart_send_blocking(USART1, '\r');
-    usart_send_blocking(USART1, '\n');
-    usart_send_blocking(USART1, '\n');
 
     // extern ADC readout completed. Force CNV low
     TIM1_CCMR1 = TIM_CCMR1_OC1M_FORCE_LOW; // (assumes all other bits are zero)
@@ -242,15 +219,8 @@ int main(void)
     timer_setup();
 
     /* variables */
-    uint16_t raw;
-    uint16_t timer_value;
-    double voltage;
     char uart_buf[20];
     int uart_buf_len;
-    char raw_buf[50];
-    int raw_buf_len;
-    char voltage_buf[50];
-    int voltage_buf_len;
     int i = 0;
 
     while (1)
