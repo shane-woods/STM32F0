@@ -61,8 +61,8 @@
 #define SCK_GPIO_PIN GPIO5
 #define MISO_GPIO_PORT GPIOA
 #define MISO_GPIO_PIN GPIO6
-#define CNV_GPIO_PORT GPIOB
-#define CNV_GPIO_PIN GPIO6
+#define CNV_GPIO_PORT GPIOA
+#define CNV_GPIO_PIN GPIO8
 
 static void clock_setup(void)
 {
@@ -109,28 +109,28 @@ static void spi_setup(void)
     spi_enable(SPI1);
 }
 
-// static void timer_setup(void)
-// {
+static void timer_setup(void)
+{
 
-//     /* Disable/Reset Timer? */
+    /* Disable/Reset Timer? */
 
-//     timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_TOGGLE);
-//     timer_enable_oc_output(TIM1, TIM_OC1);
-//     timer_enable_break_main_output(TIM1);
-//     timer_set_oc_value(TIM1, TIM_OC1, 24000); /* 1/4 of the period, 25% duty cycle */
-//     timer_set_prescaler(TIM1, 480 - 1);
-//     timer_set_period(TIM1, 48000 - 1);
+    timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_FORCE_HIGH);
+    timer_enable_oc_output(TIM1, TIM_OC1);
+    timer_enable_break_main_output(TIM1);
+    timer_set_oc_value(TIM1, TIM_OC1, 24000); /* 1/4 of the period, 25% duty cycle */
+    timer_set_prescaler(TIM1, 480 - 1);
+    timer_set_period(TIM1, 48000 - 1);
 
-//     timer_generate_event(TIM1, TIM_EGR_CC1G | TIM_EGR_TG);
-//     nvic_enable_irq(NVIC_TIM1_CC_IRQ);
-//     timer_enable_irq(TIM1, TIM_DIER_CC1IE);
+    timer_generate_event(TIM1, TIM_EGR_CC1G | TIM_EGR_TG);
+    nvic_enable_irq(NVIC_TIM1_CC_IRQ);
+    timer_enable_irq(TIM1, TIM_DIER_CC1IE);
 
-//     /**
-//      * I think we would use this instead of timer_enable(TIM1)
-//      * since we are using interupts
-//      */
-//     TIM_CR1(TIM1) |= TIM_CR1_CEN; // Start timer
-// }
+    /**
+     * I think we would use this instead of timer_enable(TIM1)
+     * since we are using interupts
+     */
+    TIM_CR1(TIM1) |= TIM_CR1_CEN; // Start timer
+}
 
 static void usart_setup(void)
 {
@@ -158,7 +158,9 @@ static void gpio_setup(void)
 
     /** SPI GPIO SETUP **/
     /* Configure CNV GPIO as PA8 (TIM1_CH1) */
-    gpio_mode_setup(CNV_GPIO_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, CNV_GPIO_PIN);
+    gpio_mode_setup(CNV_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, CNV_GPIO_PIN);
+    gpio_set_af(CNV_GPIO_PORT, GPIO_AF2, CNV_GPIO_PIN);
+    gpio_set_output_options(CNV_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, CNV_GPIO_PIN);
 
     /* Configure SCK GPIO as PA5 */
     gpio_mode_setup(SCK_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, SCK_GPIO_PIN);
@@ -174,35 +176,35 @@ static void gpio_setup(void)
     gpio_mode_setup(GPIOA, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO7);
 }
 
-// void tim1_cc_isr(void)
-// {
+void tim1_cc_isr(void)
+{
 
-//     int raw;
-//     char raw_buf[50];
-//     int raw_buf_len;
+    // int raw;
+    // char raw_buf[50];
+    // int raw_buf_len;
 
-//     /* Toggle Blue LED on interrupt */
-//     gpio_toggle(LED_PORT, BLUE_LED_PIN);
+    /* Toggle Blue LED on interrupt */
+    gpio_toggle(LED_PORT, BLUE_LED_PIN);
 
-//     SPI1_DR = 0x1;
-//     while (!(SPI1_SR & SPI_SR_RXNE))
-//         ; // wait for SPI transfer complete
+    // SPI1_DR = 0x1;
+    // while (!(SPI1_SR & SPI_SR_RXNE))
+    //     ; // wait for SPI transfer complete
 
-//     /* Get raw adc value from data register */
-//     raw = SPI1_DR;
+    // /* Get raw adc value from data register */
+    // raw = SPI1_DR;
 
-//     raw_buf_len = snprintf(raw_buf, sizeof(raw_buf), "Raw %d", raw);
-//     for (int i = 0; i < raw_buf_len; i++)
-//         usart_send_blocking(USART1, raw_buf[i]);
-//     usart_send_blocking(USART1, '\r');
-//     usart_send_blocking(USART1, '\n');
+    // raw_buf_len = snprintf(raw_buf, sizeof(raw_buf), "Raw %d", raw);
+    // for (int i = 0; i < raw_buf_len; i++)
+    //     usart_send_blocking(USART1, raw_buf[i]);
+    // usart_send_blocking(USART1, '\r');
+    // usart_send_blocking(USART1, '\n');
 
-//     // extern ADC readout completed. Force CNV low
-//     TIM1_CCMR1 = TIM_CCMR1_OC1M_FORCE_LOW; // (assumes all other bits are zero)
-//     TIM1_CCMR1 = TIM_CCMR1_OC1M_TOGGLE;
+    // extern ADC readout completed. Force CNV low
+    // TIM1_CCMR1 = TIM_CCMR1_OC1M_FORCE_LOW; // (assumes all other bits are zero)
+    TIM1_CCMR1 = TIM_CCMR1_OC1M_TOGGLE;
 
-//     TIM1_SR = ~TIM_SR_CC1IF; // clear interrupt
-// }
+    TIM1_SR = ~TIM_SR_CC1IF; // clear interrupt
+}
 
 int main(void)
 {
@@ -210,7 +212,7 @@ int main(void)
     spi_setup();
     gpio_setup();
     usart_setup();
-    // timer_setup();
+    timer_setup();
 
     while (1)
     {
