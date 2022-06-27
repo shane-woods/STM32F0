@@ -113,6 +113,7 @@ static void timer_setup(void)
 {
 
     /* Disable/Reset Timer? */
+    timer_set_mode(TIM2, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP); // FIXME THIS IS NEW
 
     timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_FORCE_HIGH);
     timer_enable_oc_output(TIM1, TIM_OC1);
@@ -179,25 +180,31 @@ static void gpio_setup(void)
 void tim1_cc_isr(void)
 {
 
-    // int raw;
-    // char raw_buf[50];
-    // int raw_buf_len;
+    int raw;
+    char raw_buf[50];
+    int raw_buf_len;
 
     /* Toggle Blue LED on interrupt */
     gpio_toggle(LED_PORT, BLUE_LED_PIN);
 
-    // SPI1_DR = 0x1;
-    // while (!(SPI1_SR & SPI_SR_RXNE))
-    //     ; // wait for SPI transfer complete
+    SPI1_DR = 0x1;
+    while (!(SPI1_SR & SPI_SR_RXNE))
+        ; // wait for SPI transfer complete
 
-    // /* Get raw adc value from data register */
-    // raw = SPI1_DR;
+    /* Get raw adc value from data register */
+    raw = SPI1_DR;
 
-    // raw_buf_len = snprintf(raw_buf, sizeof(raw_buf), "Raw %d", raw);
-    // for (int i = 0; i < raw_buf_len; i++)
-    //     usart_send_blocking(USART1, raw_buf[i]);
-    // usart_send_blocking(USART1, '\r');
-    // usart_send_blocking(USART1, '\n');
+    raw_buf_len = snprintf(raw_buf, sizeof(raw_buf), "Raw %d", raw);
+    for (int i = 0; i < raw_buf_len; i++)
+        usart_send_blocking(USART1, raw_buf[i]);
+    usart_send_blocking(USART1, '\r');
+    usart_send_blocking(USART1, '\n');
+
+    /**
+     * Equation to calculate voltage
+     * Voltage = Raw * (5 / 65535)
+     *
+     */
 
     // extern ADC readout completed. Force CNV low
     // TIM1_CCMR1 = TIM_CCMR1_OC1M_FORCE_LOW; // (assumes all other bits are zero)
@@ -216,14 +223,5 @@ int main(void)
 
     while (1)
     {
-        /* Wait a bit. */
-
-        gpio_set(CNV_GPIO_PORT, CNV_GPIO_PIN);
-
-        gpio_toggle(LED_PORT, GREEN_LED_PIN);
-        for (int j = 0; j < 800000; j++)
-            __asm__("nop");
-
-        gpio_clear(CNV_GPIO_PORT, CNV_GPIO_PIN);
     }
 }
