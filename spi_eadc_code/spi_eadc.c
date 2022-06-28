@@ -42,8 +42,8 @@
 
 /** @defgroup SPI Handles **/
 #define SPI_BUADRATE_PRESCALER SPI_CR1_BAUDRATE_FPCLK_DIV_32
-#define SPI_CLOCK_POLARITY_1 SPI_CR1_CPOL_CLK_TO_1_WHEN_IDLE
-#define SPI_CPHA_CLOCK_TRANSITION_1 SPI_CR1_CPHA_CLK_TRANSITION_1
+#define SPI_CLOCK_POLARITY SPI_CR1_CPOL_CLK_TO_1_WHEN_IDLE
+#define SPI_CPHA_CLOCK_TRANSITION SPI_CR1_CPHA_CLK_TRANSITION_2
 #define SPI_MSB_FIRST SPI_CR1_MSBFIRST
 
 /** @defgroup USART Handles **/
@@ -61,6 +61,8 @@
 #define SCK_GPIO_PIN GPIO5
 #define MISO_GPIO_PORT GPIOA
 #define MISO_GPIO_PIN GPIO6
+#define MOSI_GPIO_PORT GPIOA
+#define MOSI_GPIO_PIN GPIO7
 #define CNV_GPIO_PORT GPIOA
 #define CNV_GPIO_PIN GPIO8
 
@@ -91,8 +93,8 @@ static void spi_setup(void)
      * Data frame format: 8-bit
      * Frame format: MSB First
      */
-    spi_init_master(SPI1, SPI_BUADRATE_PRESCALER, SPI_CLOCK_POLARITY_1,
-                    SPI_CPHA_CLOCK_TRANSITION_1, SPI_MSB_FIRST);
+    spi_init_master(SPI1, SPI_BUADRATE_PRESCALER, SPI_CLOCK_POLARITY,
+                    SPI_CPHA_CLOCK_TRANSITION, SPI_MSB_FIRST);
     spi_set_data_size(SPI1, 16);
 
     /*
@@ -174,7 +176,9 @@ static void gpio_setup(void)
     gpio_set_output_options(MISO_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, MISO_GPIO_PIN);
 
     /* Configure MOSI GPIO as PA7 */
-    gpio_mode_setup(GPIOA, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO7);
+    gpio_mode_setup(MOSI_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, MOSI_GPIO_PIN);
+    gpio_set_af(MOSI_GPIO_PORT, GPIO_AF0, MOSI_GPIO_PIN);
+    gpio_set_output_options(MOSI_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, MOSI_GPIO_PIN);
 }
 
 void tim1_cc_isr(void)
@@ -207,7 +211,7 @@ void tim1_cc_isr(void)
      */
 
     // extern ADC readout completed. Force CNV low
-    // TIM1_CCMR1 = TIM_CCMR1_OC1M_FORCE_LOW; // (assumes all other bits are zero)
+    TIM1_CCMR1 = TIM_CCMR1_OC1M_FORCE_LOW; // (assumes all other bits are zero)
     TIM1_CCMR1 = TIM_CCMR1_OC1M_TOGGLE;
 
     TIM1_SR = ~TIM_SR_CC1IF; // clear interrupt
