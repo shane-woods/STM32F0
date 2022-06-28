@@ -41,7 +41,7 @@
 #define DAC_CLOCK RCC_DAC                             /* clocks for DACs (I beleive this is for sweeping, haven't used yet) */
 
 /** @defgroup SPI Handles **/
-#define SPI_BUADRATE_PRESCALER SPI_CR1_BAUDRATE_FPCLK_DIV_32
+#define SPI_BUADRATE_PRESCALER SPI_CR1_BAUDRATE_FPCLK_DIV_4
 #define SPI_CLOCK_POLARITY SPI_CR1_CPOL_CLK_TO_1_WHEN_IDLE
 #define SPI_CPHA_CLOCK_TRANSITION SPI_CR1_CPHA_CLK_TRANSITION_2
 #define SPI_MSB_FIRST SPI_CR1_MSBFIRST
@@ -87,7 +87,7 @@ static void spi_setup(void)
     spi_reset(SPI1);
 
     /* Set up SPI in Master mode with:
-     * Clock baud rate: 1/32 of peripheral clock frequency
+     * Clock baud rate: 1/4 of peripheral clock frequency
      * Clock polarity: Idle High
      * Clock phase: Data valid on 1st clock pulse
      * Data frame format: 8-bit
@@ -102,7 +102,7 @@ static void spi_setup(void)
      *
      * Note:
      * Setting nss high is very important, even if we are controlling the GPIO
-     * ourselves this bit needs to be at least set to 1, otherwise the spi
+     * ourselves this bit needs to be at lea st set to 1, otherwise the spi
      * peripheral will not send any data out.
      */
     spi_enable_software_slave_management(SPI1);
@@ -115,12 +115,12 @@ static void timer_setup(void)
 {
 
     /* Disable/Reset Timer? */
-    timer_set_mode(TIM2, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP); // FIXME THIS IS NEW
+    // timer_set_mode(TIM2, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP); // FIXME THIS IS NEW
 
     timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_FORCE_HIGH);
     timer_enable_oc_output(TIM1, TIM_OC1);
     timer_enable_break_main_output(TIM1);
-    timer_set_oc_value(TIM1, TIM_OC1, 24000); /* 1/4 of the period, 25% duty cycle */
+    timer_set_oc_value(TIM1, TIM_OC1, 24000); /* 1/2 of the period, 25% duty cycle */
     timer_set_prescaler(TIM1, 480 - 1);
     timer_set_period(TIM1, 48000 - 1);
 
@@ -128,11 +128,8 @@ static void timer_setup(void)
     nvic_enable_irq(NVIC_TIM1_CC_IRQ);
     timer_enable_irq(TIM1, TIM_DIER_CC1IE);
 
-    /**
-     * I think we would use this instead of timer_enable(TIM1)
-     * since we are using interupts
-     */
-    TIM_CR1(TIM1) |= TIM_CR1_CEN; // Start timer
+    /* Start the timer */
+    TIM_CR1(TIM1) |= TIM_CR1_CEN;
 }
 
 static void usart_setup(void)
@@ -174,11 +171,6 @@ static void gpio_setup(void)
     gpio_mode_setup(MISO_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, MISO_GPIO_PIN);
     gpio_set_af(MISO_GPIO_PORT, GPIO_AF0, MISO_GPIO_PIN);
     gpio_set_output_options(MISO_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, MISO_GPIO_PIN);
-
-    /* Configure MOSI GPIO as PA7 */
-    gpio_mode_setup(MOSI_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, MOSI_GPIO_PIN);
-    gpio_set_af(MOSI_GPIO_PORT, GPIO_AF0, MOSI_GPIO_PIN);
-    gpio_set_output_options(MOSI_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, MOSI_GPIO_PIN);
 }
 
 void tim1_cc_isr(void)
@@ -211,7 +203,7 @@ void tim1_cc_isr(void)
      */
 
     // extern ADC readout completed. Force CNV low
-    TIM1_CCMR1 = TIM_CCMR1_OC1M_FORCE_LOW; // (assumes all other bits are zero)
+    // TIM1_CCMR1 = TIM_CCMR1_OC1M_FORCE_LOW; // (assumes all other bits are zero)
     TIM1_CCMR1 = TIM_CCMR1_OC1M_TOGGLE;
 
     TIM1_SR = ~TIM_SR_CC1IF; // clear interrupt
