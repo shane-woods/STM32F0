@@ -42,8 +42,8 @@
 
 /** @defgroup SPI Handles **/
 #define SPI_BUADRATE_PRESCALER SPI_CR1_BAUDRATE_FPCLK_DIV_4
-#define SPI_CLOCK_POLARITY SPI_CR1_CPOL_CLK_TO_1_WHEN_IDLE
-#define SPI_CPHA_CLOCK_TRANSITION SPI_CR1_CPHA_CLK_TRANSITION_2
+#define SPI_CLOCK_POLARITY SPI_CR1_CPOL_CLK_TO_0_WHEN_IDLE
+#define SPI_CPHA_CLOCK_TRANSITION SPI_CR1_CPHA_CLK_TRANSITION_1
 #define SPI_MSB_FIRST SPI_CR1_MSBFIRST
 
 /** @defgroup USART Handles **/
@@ -72,10 +72,13 @@ static void clock_setup(void)
     /* Enable clock at 48mhz */
     rcc_clock_setup_in_hsi_out_48mhz();
 
+    /* Enables clocks for all needed peripherals */
     rcc_periph_clock_enable(GPIO_CLOCKS);
     rcc_periph_clock_enable(SPI1_CLOCK);
     rcc_periph_clock_enable(USART1_CLOCK);
     rcc_periph_clock_enable(TIMER1_CLOCK);
+
+    /* Not using these just yet */
     rcc_periph_clock_enable(IADC_CLOCK);
     rcc_periph_clock_enable(DAC_CLOCK);
 }
@@ -95,6 +98,8 @@ static void spi_setup(void)
      */
     spi_init_master(SPI1, SPI_BUADRATE_PRESCALER, SPI_CLOCK_POLARITY,
                     SPI_CPHA_CLOCK_TRANSITION, SPI_MSB_FIRST);
+
+    /* AD7980 is 16-bit resolution, need to set data size to 16-bits */
     spi_set_data_size(SPI1, 16);
 
     /*
@@ -115,15 +120,26 @@ static void timer_setup(void)
 {
 
     /* Disable/Reset Timer? */
-    // timer_set_mode(TIM2, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP); // FIXME THIS IS NEW
+    timer_set_mode(TIM2, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP); // FIXME THIS IS NEW
 
+    /* Enables TIM1_CH1 in Output Compare Mode */
     timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_FORCE_HIGH);
     timer_enable_oc_output(TIM1, TIM_OC1);
     timer_enable_break_main_output(TIM1);
-    timer_set_oc_value(TIM1, TIM_OC1, 24000); /* 1/2 of the period, 25% duty cycle */
+
+    /* I believe this is the value at which the timer interrupt will occur */
+    timer_set_oc_value(TIM1, TIM_OC1, 24000);
+
+    /**
+     * Prescaler divides the clock counter
+     * Not sure what we will eventually need it at
+     */
     timer_set_prescaler(TIM1, 480 - 1);
+
+    /* So we will eventually want this to be 125ms */
     timer_set_period(TIM1, 48000 - 1);
 
+    /* Enable Timer to generate interrupt signal */
     timer_generate_event(TIM1, TIM_EGR_CC1G | TIM_EGR_TG);
     nvic_enable_irq(NVIC_TIM1_CC_IRQ);
     timer_enable_irq(TIM1, TIM_DIER_CC1IE);
@@ -139,7 +155,10 @@ static void usart_setup(void)
     gpio_set_af(USART_TX_GPIO_PORT, GPIO_AF1, USART_TX_GPIO_PIN);
 
     /* Setup UART parameters. */
+
+    /* Baudrate at 115200 bits/sec */
     usart_set_baudrate(USART1, 115200);
+
     usart_set_databits(USART1, 8);
     usart_set_stopbits(USART1, USART_CR2_STOPBITS_1);
     usart_set_mode(USART1, USART_MODE_TX);
@@ -176,19 +195,27 @@ static void gpio_setup(void)
 void tim1_cc_isr(void)
 {
 
-    int raw;
+    int raw; /* 32 bit value */
     char raw_buf[50];
     int raw_buf_len;
 
     /* Toggle Blue LED on interrupt */
     gpio_toggle(LED_PORT, BLUE_LED_PIN);
 
+    /* Send byte to initialize SPI transfer */
     SPI1_DR = 0x1;
     while (!(SPI1_SR & SPI_SR_RXNE))
-        ; // wait for SPI transfer complete
+        ; /* wait for SPI transfer complete */
 
     /* Get raw adc value from data register */
     raw = SPI1_DR;
+
+    uint8_t MSB = ((raw & 0xFF00) >> 8); /* MSB HERE */
+    uint8_t LSB = (raw & 0xFF);          /* LSB HERE */
+    raw = 0x0;
+    raw = (raw | LSB);
+    raw = raw << 8;
+    raw = raw | MSB;
 
     raw_buf_len = snprintf(raw_buf, sizeof(raw_buf), "Raw %d", raw);
     for (int i = 0; i < raw_buf_len; i++)
@@ -202,7 +229,7 @@ void tim1_cc_isr(void)
      *
      */
 
-    // extern ADC readout completed. Force CNV low
+    /* extern ADC readout completed. Force CNV low */
     // TIM1_CCMR1 = TIM_CCMR1_OC1M_FORCE_LOW; // (assumes all other bits are zero)
     TIM1_CCMR1 = TIM_CCMR1_OC1M_TOGGLE;
 
@@ -218,6 +245,5 @@ int main(void)
     timer_setup();
 
     while (1)
-    {
-    }
+        ;
 }
