@@ -17,7 +17,7 @@
 /** @defgroup SPI Handles **/
 #define SPI_BUADRATE_PRESCALER SPI_CR1_BAUDRATE_FPCLK_DIV_4
 #define SPI_CLOCK_POLARITY SPI_CR1_CPOL_CLK_TO_0_WHEN_IDLE
-#define SPI_CPHA_CLOCK_TRANSITION SPI_CR1_CPHA_CLK_TRANSITION_2
+#define SPI_CPHA_CLOCK_TRANSITION SPI_CR1_CPHA_CLK_TRANSITION_1
 #define SPI_MSB_FIRST SPI_CR1_MSBFIRST
 
 /** @defgroup USART Handles **/
@@ -35,13 +35,10 @@
 #define SCK_GPIO_PIN GPIO5
 #define MISO_GPIO_PORT GPIOA
 #define MISO_GPIO_PIN GPIO6
-#define MOSI_GPIO_PORT GPIOA
-#define MOSI_GPIO_PIN GPIO7
 #define CNV_GPIO_PORT GPIOA
 #define CNV_GPIO_PIN GPIO8
 
 static void gpio_setup(void);
-static void usart_setup(void);
 static void timer_setup(void);
 static void spi_setup(void);
 static void clock_setup(void);

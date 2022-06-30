@@ -21,6 +21,7 @@
 #endif
 
 #include "spi_eadc.h"
+#include "../uart.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -216,18 +217,8 @@ void tim1_cc_isr(void)
     /* Get raw adc value from data register */
     int raw = SPI1_DR;
 
-    uint8_t MSB = ((raw & 0xFF00) >> 8); /* MSB HERE */
-    uint8_t LSB = (raw & 0xFF);          /* LSB HERE */
-    int swabRaw = ((LSB << 8) | MSB);
-
-    /* THIS PRINTS RAW ON SCREEN */
-    char raw_buf[50];
-    int raw_buf_len;
-    raw_buf_len = snprintf(raw_buf, sizeof(raw_buf), "Raw %d", swabRaw);
-    for (int i = 0; i < raw_buf_len; i++)
-        usart_send_blocking(USART1, raw_buf[i]);
-    usart_send_blocking(USART1, '\r');
-    usart_send_blocking(USART1, '\n');
+    /* Send RPA sample (SPI readout has bytes swapped) */
+    putswap(raw);
 
     /* THIS SENDS GOOD BITS, BUT DOESNT SHOW ON SCREEN */
     // putswab(raw); // Send RPA sample (SPI readout has bytes swapped)
@@ -265,8 +256,6 @@ int main(void)
 {
     clock_setup();
     gpio_setup();
-    usart_setup();
-    hk_setup();
     spi_setup();
     timer_setup();
     while (1)
