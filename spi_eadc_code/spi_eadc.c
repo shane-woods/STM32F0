@@ -26,9 +26,33 @@
 #include <string.h>
 #include <stdlib.h>
 
+// output buffer
+int uartbuf[64];
+long qnext, qlast;
+
+// Buffered single char output. Put in mem buf and return. ISR sends it
+void putch(int ch)
+{
+    usart_disable_tx_interrupt(USART1); // prevent collision ISR access to qlast
+    uartbuf[qlast++] = ch;
+    qlast &= 0x3f;
+    usart_enable_tx_interrupt(USART1);
+}
+
+void putwd(long wd) // Write 16-bit value to UART
+{
+    putch((wd & 0xFF00) >> 8); // msb
+    putch(wd & 0xFF);          // lsb
+}
+
+void putswab(long wd) // Write 16-bit byte swappped to UART
+{
+    putch(wd & 0xFF);          // lsb
+    putch((wd & 0xFF00) >> 8); // msb
+}
+
 static void clock_setup(void)
 {
-
     /* Enable clock at 48mhz */
     rcc_clock_setup_in_hsi_out_48mhz();
 
@@ -43,9 +67,80 @@ static void clock_setup(void)
     rcc_periph_clock_enable(DAC_CLOCK);
 }
 
+static void gpio_setup(void)
+{
+    /** LED GPIO SETUP **/
+    /* Set GPIO8 (in GPIO port C) to 'output push-pull'. */
+    gpio_mode_setup(LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, BLUE_LED_PIN | GREEN_LED_PIN);
+
+    /** SPI GPIO SETUP **/
+    /* Configure CNV GPIO as PA8 (TIM1_CH1) */
+    gpio_mode_setup(CNV_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, CNV_GPIO_PIN);
+    gpio_set_af(CNV_GPIO_PORT, GPIO_AF2, CNV_GPIO_PIN);
+    gpio_set_output_options(CNV_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, CNV_GPIO_PIN);
+
+    /* Configure SCK GPIO as PA5 */
+    gpio_mode_setup(SCK_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, SCK_GPIO_PIN);
+    gpio_set_af(SCK_GPIO_PORT, GPIO_AF0, SCK_GPIO_PIN);
+    gpio_set_output_options(SCK_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, SCK_GPIO_PIN);
+
+    /* Configure MISO GPIO as PA6 */
+    gpio_mode_setup(MISO_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, MISO_GPIO_PIN);
+    gpio_set_af(MISO_GPIO_PORT, GPIO_AF0, MISO_GPIO_PIN);
+    gpio_set_output_options(MISO_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, MISO_GPIO_PIN);
+
+    /* Setup GPIO pin GPIO_USART1_TX/GPIO9 on GPIO port A for transmit. */
+    gpio_mode_setup(USART_TX_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, USART_TX_GPIO_PIN);
+    gpio_set_af(USART_TX_GPIO_PORT, GPIO_AF1, USART_TX_GPIO_PIN);
+}
+
+static void usart_setup(void)
+{
+    nvic_enable_irq(NVIC_USART1_IRQ);
+
+    /* Setup UART parameters. */
+
+    /* Baudrate at 115200 bits/sec */
+    usart_set_baudrate(USART1, 115200);
+    usart_set_databits(USART1, 8);
+    usart_set_stopbits(USART1, 1);
+    usart_set_mode(USART1, USART_MODE_TX);
+    usart_set_parity(USART1, USART_PARITY_NONE);
+    usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
+    usart_set_mode(USART1, USART_MODE_TX_RX);
+
+    qnext = 0;
+    qlast = 0;
+
+    /* Finally enable the USART. */
+    usart_enable(USART1);
+    putch('!'); // send a char to show it was reset
+}
+
+// Set up for single chan software trig conversion.
+// Assumes GPIO bits are already set up
+void hk_setup(void)
+{
+    adc_power_off(ADC1);
+    adc_calibrate(ADC1); // requires adc disabled
+    while (adc_is_calibrating(ADC1))
+        ;
+
+    adc_set_sample_time_on_all_channels(ADC1, ADC_SMPR_SMP_055DOT5); // works best for SWPMON
+    adc_power_on(ADC1);
+
+    adc_enable_temperature_sensor();
+    adc_enable_vrefint();
+
+    adc_set_clk_source(ADC1, ADC_CLKSOURCE_PCLK_DIV2); // use sync clock for no jitter
+    adc_set_resolution(ADC1, ADC_CFGR1_RES_12_BIT);
+    adc_set_right_aligned(ADC1);
+    adc_disable_external_trigger_regular(ADC1);
+    adc_set_single_conversion_mode(ADC1);
+}
+
 static void spi_setup(void)
 {
-
     /* Reset SPI, SPI_CR1 register cleared, SPI is disabled */
     spi_reset(SPI1);
 
@@ -78,12 +173,11 @@ static void spi_setup(void)
 
 static void timer_setup(void)
 {
-
     /* Disable/Reset Timer? */
-    timer_set_mode(TIM2, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP); // FIXME THIS IS NEW
+    timer_set_mode(TIM1, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP); // FIXME THIS IS NEW
 
     /* Enables TIM1_CH1 in Output Compare Mode */
-    timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_FORCE_HIGH);
+    timer_set_oc_mode(TIM1, TIM_OC1, TIM_OCM_TOGGLE);
     timer_enable_oc_output(TIM1, TIM_OC1);
     timer_enable_break_main_output(TIM1);
 
@@ -108,59 +202,11 @@ static void timer_setup(void)
     TIM_CR1(TIM1) |= TIM_CR1_CEN;
 }
 
-static void usart_setup(void)
-{
-    /* Setup GPIO pin GPIO_USART1_TX/GPIO9 on GPIO port A for transmit. */
-    gpio_mode_setup(USART_TX_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, USART_TX_GPIO_PIN);
-    gpio_set_af(USART_TX_GPIO_PORT, GPIO_AF1, USART_TX_GPIO_PIN);
-
-    /* Setup UART parameters. */
-
-    /* Baudrate at 115200 bits/sec */
-    usart_set_baudrate(USART1, 115200);
-
-    usart_set_databits(USART1, 8);
-    usart_set_stopbits(USART1, USART_CR2_STOPBITS_1);
-    usart_set_mode(USART1, USART_MODE_TX);
-    usart_set_parity(USART1, USART_PARITY_NONE);
-    usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
-
-    /* Finally enable the USART. */
-    usart_enable(USART1);
-}
-
-static void gpio_setup(void)
-{
-    /** LED GPIO SETUP **/
-    /* Set GPIO8 (in GPIO port C) to 'output push-pull'. */
-    gpio_mode_setup(LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, BLUE_LED_PIN | GREEN_LED_PIN);
-
-    /** SPI GPIO SETUP **/
-    /* Configure CNV GPIO as PA8 (TIM1_CH1) */
-    gpio_mode_setup(CNV_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, CNV_GPIO_PIN);
-    gpio_set_af(CNV_GPIO_PORT, GPIO_AF2, CNV_GPIO_PIN);
-    gpio_set_output_options(CNV_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, CNV_GPIO_PIN);
-
-    /* Configure SCK GPIO as PA5 */
-    gpio_mode_setup(SCK_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, SCK_GPIO_PIN);
-    gpio_set_af(SCK_GPIO_PORT, GPIO_AF0, SCK_GPIO_PIN);
-    gpio_set_output_options(SCK_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, SCK_GPIO_PIN);
-
-    /* Configure MISO GPIO as PA6 */
-    gpio_mode_setup(MISO_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, MISO_GPIO_PIN);
-    gpio_set_af(MISO_GPIO_PORT, GPIO_AF0, MISO_GPIO_PIN);
-    gpio_set_output_options(MISO_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, MISO_GPIO_PIN);
-}
-
 void tim1_cc_isr(void)
 {
 
-    int raw; /* 32 bit value */
-    char raw_buf[50];
-    int raw_buf_len;
-
     /* Toggle Blue LED on interrupt */
-    gpio_toggle(LED_PORT, BLUE_LED_PIN);
+    gpio_toggle(LED_PORT, GREEN_LED_PIN);
 
     /* Send byte to initialize SPI transfer */
     SPI1_DR = 0x1;
@@ -168,42 +214,61 @@ void tim1_cc_isr(void)
         ; /* wait for SPI transfer complete */
 
     /* Get raw adc value from data register */
-    raw = SPI1_DR;
+    int raw = SPI1_DR;
 
     uint8_t MSB = ((raw & 0xFF00) >> 8); /* MSB HERE */
     uint8_t LSB = (raw & 0xFF);          /* LSB HERE */
-    raw = 0x0;
-    raw = (raw | LSB);
-    raw = raw << 8;
-    raw = raw | MSB;
+    int swabRaw = ((LSB << 8) | MSB);
 
-    raw_buf_len = snprintf(raw_buf, sizeof(raw_buf), "Raw %d", raw);
+    /* THIS PRINTS RAW ON SCREEN */
+    char raw_buf[50];
+    int raw_buf_len;
+    raw_buf_len = snprintf(raw_buf, sizeof(raw_buf), "Raw %d", swabRaw);
     for (int i = 0; i < raw_buf_len; i++)
         usart_send_blocking(USART1, raw_buf[i]);
     usart_send_blocking(USART1, '\r');
     usart_send_blocking(USART1, '\n');
 
+    /* THIS SENDS GOOD BITS, BUT DOESNT SHOW ON SCREEN */
+    // putswab(raw); // Send RPA sample (SPI readout has bytes swapped)
+
     /**
      * Equation to calculate voltage
      * Voltage = Raw * (5 / 65535)
-     *
      */
-
     /* extern ADC readout completed. Force CNV low */
-    // TIM1_CCMR1 = TIM_CCMR1_OC1M_FORCE_LOW; // (assumes all other bits are zero)
+    TIM1_CCMR1 = TIM_CCMR1_OC1M_FORCE_HIGH; // (assumes all other bits are zero)
     TIM1_CCMR1 = TIM_CCMR1_OC1M_TOGGLE;
 
     TIM1_SR = ~TIM_SR_CC1IF; // clear interrupt
 }
 
+void usart1_isr(void)
+{
+    if (USART_ISR(USART1) & USART_ISR_TXE) // (should be the only bit enabled)
+    {
+        if (qnext != qlast)
+        {
+            gpio_set(GPIOC, GPIO9);
+            USART_TDR(USART1) = uartbuf[qnext++]; // this prints a few bad characters
+        }
+        else
+        {
+            usart_disable_tx_interrupt(USART1);
+            gpio_clear(GPIOC, GPIO9);
+        }
+        qnext &= 0x3f;
+    }
+}
+
 int main(void)
 {
     clock_setup();
-    spi_setup();
     gpio_setup();
     usart_setup();
+    hk_setup();
+    spi_setup();
     timer_setup();
-
     while (1)
         ;
 }
