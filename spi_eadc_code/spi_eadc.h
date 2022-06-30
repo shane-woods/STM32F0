@@ -42,3 +42,4 @@ static void gpio_setup(void);
 static void timer_setup(void);
 static void spi_setup(void);
 static void clock_setup(void);
+static void hk_setup(void);
