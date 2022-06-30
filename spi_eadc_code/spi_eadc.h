@@ -46,6 +46,3 @@ static void timer_setup(void);
 static void spi_setup(void);
 static void clock_setup(void);
 static void hk_setup(void);
-void putch(void);
-void putwd(void);
-void putswab(void);
