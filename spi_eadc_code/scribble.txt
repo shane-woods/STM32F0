@@ -1,8 +1,7 @@
 48 Mhz clock
-Prescalar of 
-Max time of 12000
 
-48 mhz / 4800 = 10 Khz -> 1 tick / 0.0001 seconds
+
+48 mhz / 24 = 1 mhz -> 1 ticks / 1000ns
 
 10000 x 0.0001 seconds = 1.0 seconds
 
