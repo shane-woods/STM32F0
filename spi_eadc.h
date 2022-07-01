@@ -1,10 +1,10 @@
-#include "../libopencm3/include/libopencm3/stm32/rcc.h"
-#include "../libopencm3/include/libopencm3/stm32/adc.h"
-#include "../libopencm3/include/libopencm3/stm32/usart.h"
-#include "../libopencm3/include/libopencm3/stm32/gpio.h"
-#include "../libopencm3/include/libopencm3/stm32/spi.h"
-#include "../libopencm3/include/libopencm3/stm32/timer.h"
-#include "../libopencm3/include/libopencm3/cm3/nvic.h"
+#include "libopencm3/include/libopencm3/stm32/rcc.h"
+#include "libopencm3/include/libopencm3/stm32/adc.h"
+#include "libopencm3/include/libopencm3/stm32/usart.h"
+#include "libopencm3/include/libopencm3/stm32/gpio.h"
+#include "libopencm3/include/libopencm3/stm32/spi.h"
+#include "libopencm3/include/libopencm3/stm32/timer.h"
+#include "libopencm3/include/libopencm3/cm3/nvic.h"
 
 /** @defgroup RCC Clock handles **/
 #define GPIO_CLOCKS RCC_GPIOA | RCC_GPIOB | RCC_GPIOC /* clocks for GPIO ports A & B */

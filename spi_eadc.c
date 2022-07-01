@@ -21,36 +21,11 @@
 #endif
 
 #include "spi_eadc.h"
-#include "../uart.h"
+#include "uart.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-
-// output buffer
-int uartbuf[64];
-long qnext, qlast;
-
-// Buffered single char output. Put in mem buf and return. ISR sends it
-void putch(int ch)
-{
-    usart_disable_tx_interrupt(USART1); // prevent collision ISR access to qlast
-    uartbuf[qlast++] = ch;
-    qlast &= 0x3f;
-    usart_enable_tx_interrupt(USART1);
-}
-
-void putwd(long wd) // Write 16-bit value to UART
-{
-    putch((wd & 0xFF00) >> 8); // msb
-    putch(wd & 0xFF);          // lsb
-}
-
-void putswab(long wd) // Write 16-bit byte swappped to UART
-{
-    putch(wd & 0xFF);          // lsb
-    putch((wd & 0xFF00) >> 8); // msb
-}
 
 static void clock_setup(void)
 {
@@ -93,29 +68,6 @@ static void gpio_setup(void)
     /* Setup GPIO pin GPIO_USART1_TX/GPIO9 on GPIO port A for transmit. */
     gpio_mode_setup(USART_TX_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, USART_TX_GPIO_PIN);
     gpio_set_af(USART_TX_GPIO_PORT, GPIO_AF1, USART_TX_GPIO_PIN);
-}
-
-static void usart_setup(void)
-{
-    nvic_enable_irq(NVIC_USART1_IRQ);
-
-    /* Setup UART parameters. */
-
-    /* Baudrate at 115200 bits/sec */
-    usart_set_baudrate(USART1, 115200);
-    usart_set_databits(USART1, 8);
-    usart_set_stopbits(USART1, 1);
-    usart_set_mode(USART1, USART_MODE_TX);
-    usart_set_parity(USART1, USART_PARITY_NONE);
-    usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
-    usart_set_mode(USART1, USART_MODE_TX_RX);
-
-    qnext = 0;
-    qlast = 0;
-
-    /* Finally enable the USART. */
-    usart_enable(USART1);
-    putch('!'); // send a char to show it was reset
 }
 
 // Set up for single chan software trig conversion.
@@ -216,12 +168,22 @@ void tim1_cc_isr(void)
 
     /* Get raw adc value from data register */
     int raw = SPI1_DR;
+    char raw_buf[50];
+    int raw_buf_len;
+    uint8_t MSB = ((raw & 0xFF00) >> 8); /* MSB HERE */
+    uint8_t LSB = (raw & 0xFF);          /* LSB HERE */
+    raw = 0x0;
+    raw = (raw | LSB);
+    raw = raw << 8;
+    raw = raw | MSB;
 
+    raw_buf_len = snprintf(raw_buf, sizeof(raw_buf), "Raw %d", raw);
+    for (int i = 0; i < raw_buf_len; i++)
+        usart_send_blocking(USART1, raw_buf[i]);
+    usart_send_blocking(USART1, '\r');
+    usart_send_blocking(USART1, '\n');
     /* Send RPA sample (SPI readout has bytes swapped) */
-    putswap(raw);
-
-    /* THIS SENDS GOOD BITS, BUT DOESNT SHOW ON SCREEN */
-    // putswab(raw); // Send RPA sample (SPI readout has bytes swapped)
+    // putswap(raw);
 
     /**
      * Equation to calculate voltage
@@ -234,29 +196,12 @@ void tim1_cc_isr(void)
     TIM1_SR = ~TIM_SR_CC1IF; // clear interrupt
 }
 
-void usart1_isr(void)
-{
-    if (USART_ISR(USART1) & USART_ISR_TXE) // (should be the only bit enabled)
-    {
-        if (qnext != qlast)
-        {
-            gpio_set(GPIOC, GPIO9);
-            USART_TDR(USART1) = uartbuf[qnext++]; // this prints a few bad characters
-        }
-        else
-        {
-            usart_disable_tx_interrupt(USART1);
-            gpio_clear(GPIOC, GPIO9);
-        }
-        qnext &= 0x3f;
-    }
-}
-
 int main(void)
 {
     clock_setup();
     gpio_setup();
     spi_setup();
+    setupUART();
     timer_setup();
     while (1)
         ;
