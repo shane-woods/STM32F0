@@ -11,10 +11,12 @@
 #define STM32F0
 #endif
 
-/** Libopencm3 includes **/
-#include "../libopencm3/include/libopencm3/stm32/rcc.h" /* Fine to be here now but Clock setup can go in our main later */
+#include "../libopencm3/include/libopencm3/stm32/rcc.h"
+#include "../libopencm3/include/libopencm3/stm32/adc.h"
 #include "../libopencm3/include/libopencm3/stm32/usart.h"
-#include "../libopencm3/include/libopencm3/stm32/gpio.h" /* Fine for LEDs, GPIO setup will go in main later */
+#include "../libopencm3/include/libopencm3/stm32/gpio.h"
+#include "../libopencm3/include/libopencm3/stm32/spi.h"
+#include "../libopencm3/include/libopencm3/stm32/timer.h"
 #include "../libopencm3/include/libopencm3/cm3/nvic.h"
 
 /** @defgroup USART Handles **/

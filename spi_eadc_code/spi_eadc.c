@@ -21,7 +21,7 @@
 #endif
 
 #include "spi_eadc.h"
-#include "../uart.h"
+#include "uart.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -89,10 +89,6 @@ static void gpio_setup(void)
     gpio_mode_setup(MISO_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, MISO_GPIO_PIN);
     gpio_set_af(MISO_GPIO_PORT, GPIO_AF0, MISO_GPIO_PIN);
     gpio_set_output_options(MISO_GPIO_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, MISO_GPIO_PIN);
-
-    /* Setup GPIO pin GPIO_USART1_TX/GPIO9 on GPIO port A for transmit. */
-    gpio_mode_setup(USART_TX_GPIO_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, USART_TX_GPIO_PIN);
-    gpio_set_af(USART_TX_GPIO_PORT, GPIO_AF1, USART_TX_GPIO_PIN);
 }
 
 static void usart_setup(void)
@@ -217,6 +213,13 @@ void tim1_cc_isr(void)
     /* Get raw adc value from data register */
     int raw = SPI1_DR;
 
+    char wd_buf[50];
+    int wd_buf_len = snprintf(wd_buf, sizeof(wd_buf), "Raw %d", raw);
+    for (int i = 0; i < wd_buf_len; i++)
+        usart_send_blocking(USART1, wd_buf[i]);
+    usart_send_blocking(USART1, '\r');
+    usart_send_blocking(USART1, '\n');
+
     /* Send RPA sample (SPI readout has bytes swapped) */
     putswap(raw);
 
@@ -254,6 +257,7 @@ void usart1_isr(void)
 
 int main(void)
 {
+    setupUART();
     clock_setup();
     gpio_setup();
     spi_setup();
